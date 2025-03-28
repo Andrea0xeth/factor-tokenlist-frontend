@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 interface UseTokenImageOptions {
   src?: string;
@@ -67,7 +67,9 @@ export default function useTokenImage({
   }, [src, cleanSymbol, tokenAddress]);
 
   // Current image source
-  const currentSrc = fallbackSources[Math.min(fallbackIndex, fallbackSources.length - 1)];
+  const currentSrc = useMemo(() => {
+    return fallbackSources[Math.min(fallbackIndex, fallbackSources.length - 1)];
+  }, [fallbackSources, fallbackIndex]);
 
   // Color generated from the symbol for the placeholder
   const color = useMemo(() => {
@@ -86,39 +88,50 @@ export default function useTokenImage({
     return colors[index];
   }, [cleanSymbol]);
 
-  // When the image source changes, reset the state
-  useEffect(() => {
-    setStatus('loading');
-  }, [currentSrc]);
-
   // Function to handle error and move to the next source
-  const handleImageError = () => {
+  const handleImageError = useCallback(() => {
     setStatus('error');
     
     // Move to the next source only if we're not at the last one
     if (fallbackIndex < fallbackSources.length - 1) {
       setFallbackIndex(prev => prev + 1);
     }
-  };
+  }, [fallbackIndex, fallbackSources.length]);
 
   // Function to restart loading
-  const retryLoading = () => {
+  const retryLoading = useCallback(() => {
     setRetryCount(prev => prev + 1);
     setFallbackIndex(0);
     setStatus('loading');
-  };
+  }, []);
 
+  // When the currentSrc changes, update the status
   useEffect(() => {
-    // Try to preload the current image
-    if (currentSrc && status === 'loading') {
-      const img = new Image();
-      img.onload = () => {
-        setStatus('success');
-      };
-      img.onerror = handleImageError;
-      img.src = currentSrc;
+    setStatus('loading');
+  }, [currentSrc]);
+
+  // Try to preload the current image
+  useEffect(() => {
+    if (!currentSrc || status !== 'loading') {
+      return;
     }
-  }, [currentSrc, status, retryCount]);
+
+    const img = new Image();
+    
+    const onLoad = () => {
+      setStatus('success');
+    };
+    
+    img.onload = onLoad;
+    img.onerror = handleImageError;
+    img.src = currentSrc;
+    
+    // Cleanup function
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [currentSrc, status, handleImageError]);
 
   return {
     currentSrc,
