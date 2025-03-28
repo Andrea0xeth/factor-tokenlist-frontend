@@ -14,6 +14,7 @@ import ProtocolFilter from './components/ProtocolFilter';
 import BuildingBlockFilter from './components/BuildingBlockFilter';
 import SearchInput from './components/SearchInput';
 import { Transition } from '@headlessui/react';
+import { BuildingBlock } from '@factordao/tokenlist';
 
 export default function Home() {
   // We use the Context to access the app's global state
@@ -102,7 +103,8 @@ export default function Home() {
                 Action
               </label>
               <BuildingBlockFilter 
-                selectedBuildingBlock={selectedBuildingBlock}
+                buildingBlocks={Object.values(BuildingBlock)}
+                selected={selectedBuildingBlock}
                 onChange={setSelectedBuildingBlock}
                 isLoading={isLoading}
               />

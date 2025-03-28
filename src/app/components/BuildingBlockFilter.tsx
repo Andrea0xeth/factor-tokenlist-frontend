@@ -14,7 +14,7 @@ interface BuildingBlockFilterProps {
  * Component for filtering tokens by building block
  */
 export default function BuildingBlockFilter({
-  buildingBlocks,
+  buildingBlocks = [],
   selected,
   onChange
 }: BuildingBlockFilterProps) {
@@ -31,11 +31,13 @@ export default function BuildingBlockFilter({
   const placeholderText = selected || "Filter by building block";
 
   // List of available building blocks with the selected one at the top
-  const sortedBuildingBlocks = [...filteredBuildingBlocks].sort((a, b) => {
-    if (a === selected) return -1;
-    if (b === selected) return 1;
-    return a.localeCompare(b);
-  });
+  const sortedBuildingBlocks = Array.isArray(filteredBuildingBlocks) 
+    ? [...filteredBuildingBlocks].sort((a, b) => {
+        if (a === selected) return -1;
+        if (b === selected) return 1;
+        return a.localeCompare(b);
+      })
+    : [];
 
   return (
     <div className="w-full max-w-xs">

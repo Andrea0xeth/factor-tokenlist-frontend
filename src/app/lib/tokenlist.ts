@@ -151,3 +151,12 @@ export const SUPPORTED_CHAIN_IDS: number[] = [
   ChainId.BASE,
   ChainId.OPTIMISM,
 ];
+
+// Function to get a friendly protocol label
+export function getProtocolLabel(protocolId: string): string {
+  // Return a more user-friendly protocol name
+  // This replaces hyphens and underscores with spaces and capitalizes each word
+  return protocolId
+    .replace(/[-_]/g, ' ')
+    .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
