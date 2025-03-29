@@ -69,6 +69,7 @@ export interface Action {
   buildingBlock: BuildingBlock;
   protocolId: string;
   tokenAddress: string;
+  apy?: number;
 }
 
 export interface StrapiToken {
