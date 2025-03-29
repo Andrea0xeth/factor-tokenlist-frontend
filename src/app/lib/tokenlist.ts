@@ -72,8 +72,10 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     // Get general tokens
     console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
     const generalTokens = await tokenlist.getAllGeneralTokens();
-    allTokens = [...generalTokens];
-    console.log(`Received ${generalTokens.length} general tokens for chain ${chainId}`);
+    // Filter out invalid tokens (without address)
+    const validGeneralTokens = generalTokens.filter(token => !!token.address);
+    allTokens = [...validGeneralTokens];
+    console.log(`Received ${generalTokens.length} general tokens, ${validGeneralTokens.length} valid for chain ${chainId}`);
     
     // Try to get specialized tokens based on protocols
     
@@ -87,7 +89,8 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
           return market.asset.map(asset => {
             // For each asset, add both collateral and debt tokens
             return [
-              {
+              // Only create tokens if addresses exist
+              ...(asset.collateralToken.address ? [{
                 address: asset.collateralToken.address,
                 name: asset.collateralToken.name,
                 symbol: asset.collateralToken.symbol,
@@ -104,8 +107,8 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                     assetType: 'collateral'
                   }
                 }
-              },
-              {
+              }] : []),
+              ...(asset.debtToken.address ? [{
                 address: asset.debtToken.address,
                 name: asset.debtToken.name,
                 symbol: asset.debtToken.symbol,
@@ -122,7 +125,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                     assetType: 'debt'
                   }
                 }
-              }
+              }] : [])
             ];
           });
         }).flat();
@@ -140,27 +143,29 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
         const proVaultTokens = await tokenlist.getAllProVaultsTokens();
         if (proVaultTokens && proVaultTokens.length > 0) {
           // Process Pro Vault tokens
-          const processedProVaultTokens = proVaultTokens.map(vault => ({
-            address: vault.vaultAddress,
-            name: vault.name,
-            symbol: vault.symbol,
-            decimals: vault.decimals || 18,
-            chainId: chainId,
-            protocols: ['pro-vaults'],
-            buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
-            logoURI: vault.logoURI,
-            extensions: {
+          const processedProVaultTokens = proVaultTokens
+            .filter(vault => !!vault.vaultAddress) // Filter out vaults without addresses
+            .map(vault => ({
+              address: vault.vaultAddress,
+              name: vault.name,
+              symbol: vault.symbol,
+              decimals: vault.decimals || 18,
+              chainId: chainId,
               protocols: ['pro-vaults'],
               buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
-              vaultInfo: {
-                vaultAddress: vault.vaultAddress,
-                strategyAddress: vault.strategyAddress,
-                depositToken: vault.depositToken,
-                apy: vault.apy,
-                deprecated: vault.deprecated
+              logoURI: vault.logoURI,
+              extensions: {
+                protocols: ['pro-vaults'],
+                buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+                vaultInfo: {
+                  vaultAddress: vault.vaultAddress,
+                  strategyAddress: vault.strategyAddress,
+                  depositToken: vault.depositToken,
+                  apy: vault.apy,
+                  deprecated: vault.deprecated
+                }
               }
-            }
-          }));
+            }));
           
           allTokens = [...allTokens, ...processedProVaultTokens];
           console.log(`Added ${processedProVaultTokens.length} Pro Vault tokens for chain ${chainId}`);
@@ -176,8 +181,17 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     console.error(`Error fetching tokens for chain ${chainId}:`, error);
   }
   
+  // Log invalid tokens for debugging
+  const invalidTokens = allTokens.filter(token => !token.address);
+  if (invalidTokens.length > 0) {
+    console.warn(`Found ${invalidTokens.length} tokens without addresses:`, invalidTokens);
+  }
+  
+  // Filter out invalid tokens before conversion
+  const validTokens = allTokens.filter(token => !!token.address);
+  
   // Convert tokens to the format required by the frontend
-  const convertedTokens = allTokens.map((token: any) => convertToken(token, chainId));
+  const convertedTokens = validTokens.map((token: any) => convertToken(token, chainId));
   
   // Remove duplicates by address (keeping the most detailed version)
   const uniqueTokens = removeDuplicateTokens(convertedTokens);
@@ -191,6 +205,12 @@ function removeDuplicateTokens(tokens: Token[]): Token[] {
   const addressMap = new Map<string, Token>();
   
   for (const token of tokens) {
+    // Skip tokens without an address
+    if (!token.address) {
+      console.warn('Found token without address:', token);
+      continue;
+    }
+    
     const key = `${token.chainId}-${token.address.toLowerCase()}`;
     if (!addressMap.has(key) || 
         (token.extensions && Object.keys(token.extensions).length > 0) ||
@@ -204,6 +224,23 @@ function removeDuplicateTokens(tokens: Token[]): Token[] {
 
 // Function to convert from tokenlist Token to frontend Token format
 function convertToken(token: any, chainId: number): Token {
+  // Skip tokens that don't have an address
+  if (!token.address) {
+    console.warn('Skipping token without address:', token);
+    return {
+      address: '0x0000000000000000000000000000000000000000', // Default address
+      chainId: token.chainId || chainId,
+      name: token.name || 'Unknown Token',
+      symbol: token.symbol || 'UNKNOWN',
+      decimals: token.decimals || 18,
+      logoURI: token.logoURI || `/icons/tokens/UNKNOWN.png`,
+      tags: token.tags || [],
+      protocols: [],
+      buildingBlocks: [],
+      extensions: { isInvalid: true }
+    };
+  }
+
   const tokenChainId = token.chainId || chainId;
   
   // Ensure building blocks are in the correct format
@@ -223,10 +260,10 @@ function convertToken(token: any, chainId: number): Token {
   return {
     address: token.address,
     chainId: tokenChainId,
-    name: token.name,
-    symbol: token.symbol,
+    name: token.name || 'Unknown Token',
+    symbol: token.symbol || 'UNKNOWN',
     decimals: token.decimals || 18,
-    logoURI: token.logoURI || `/icons/tokens/${token.symbol?.toUpperCase()}.png`,
+    logoURI: token.logoURI || `/icons/tokens/${(token.symbol || 'UNKNOWN').toUpperCase()}.png`,
     tags: token.tags || [],
     protocols: protocols,
     buildingBlocks: buildingBlocks,
