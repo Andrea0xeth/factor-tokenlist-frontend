@@ -102,7 +102,7 @@ export default function Home() {
                 Action
               </label>
               <BuildingBlockFilter 
-                buildingBlocks={Object.values(BuildingBlock).map(value => value.toString())}
+                buildingBlocks={Object.values(BuildingBlock)}
                 selected={selectedBuildingBlock}
                 onChange={setSelectedBuildingBlock}
               />

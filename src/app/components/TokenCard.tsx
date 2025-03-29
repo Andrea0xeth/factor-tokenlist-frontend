@@ -18,6 +18,22 @@ const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
   [BuildingBlock.ZAP]: 'Zap',
 };
 
+// Helper function to get the correct Etherscan URL based on chain ID
+function getExplorerUrl(chainId: number, address: string): string {
+  switch(chainId) {
+    case 42161: // Arbitrum
+      return `https://arbiscan.io/token/${address}`;
+    case 10: // Optimism
+      return `https://optimistic.etherscan.io/token/${address}`;
+    case 8453: // Base
+      return `https://basescan.org/token/${address}`;
+    case 1: // Ethereum
+      return `https://etherscan.io/token/${address}`;
+    default:
+      return `https://etherscan.io/token/${address}`;
+  }
+}
+
 interface TokenCardProps {
   token: TokenInfo;
   isSelected?: boolean;
@@ -97,7 +113,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               Address
             </span>
             <a 
-              href={`https://etherscan.io/token/${token.address}`}
+              href={getExplorerUrl(token.chainId, token.address)}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"

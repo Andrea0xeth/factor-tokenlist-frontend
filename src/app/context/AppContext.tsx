@@ -221,17 +221,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         
         if (!matchingProtocol) return false;
         
-        if (Array.isArray(token.protocols)) {
-          return token.protocols.some(p => {
-            if (typeof p === 'string') {
-              return p.toLowerCase() === selectedProtocolId.toLowerCase();
-            } else if (p && typeof p === 'object' && 'id' in p) {
-              return (p as any).id.toLowerCase() === selectedProtocolId.toLowerCase();
-            }
-            return String(p).toLowerCase() === selectedProtocolId.toLowerCase();
-          });
-        }
-        return false;
+        // Check in both possible locations of protocols
+        const tokenProtocols = Array.isArray(token.protocols) ? token.protocols : 
+                              Array.isArray(token.extensions?.protocols) ? token.extensions.protocols : [];
+                              
+        return tokenProtocols.some(p => {
+          if (typeof p === 'string') {
+            return p.toLowerCase() === selectedProtocolId.toLowerCase();
+          } else if (p && typeof p === 'object' && 'id' in p) {
+            return (p as any).id.toLowerCase() === selectedProtocolId.toLowerCase();
+          }
+          return String(p).toLowerCase() === selectedProtocolId.toLowerCase();
+        });
       });
     }
     
