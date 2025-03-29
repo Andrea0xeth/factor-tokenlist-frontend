@@ -23,6 +23,8 @@ export const buildingBlockToAction: Record<string, string> = {
 
 // Cache of FactorTokenlist instances to avoid recreating them each time
 const tokenlistInstances: Record<number, FactorTokenlist> = {};
+// Track which instances have already initialized Pro Vaults
+const initializedProVaults: Record<number, boolean> = {};
 
 // Function to get a FactorTokenlist instance for a given chain
 async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
@@ -33,6 +35,19 @@ async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
   console.log(`Initializing FactorTokenlist for chain ${chainId}...`);
   const instance = new FactorTokenlist(chainId);
   tokenlistInstances[chainId] = instance;
+  
+  // Initialize Pro Vaults for Arbitrum
+  if (chainId === ChainId.ARBITRUM_ONE) {
+    try {
+      console.log('Initializing Pro Vaults for Arbitrum...');
+      await instance.initializeProVaultsTokens();
+      initializedProVaults[chainId] = true;
+      console.log('Pro Vaults initialization successful');
+    } catch (error) {
+      console.warn('Failed to initialize Pro Vaults:', error);
+    }
+  }
+  
   console.log(`FactorTokenlist initialized successfully for chain ${chainId}`);
   return instance;
 }
@@ -44,14 +59,57 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   // Get the tokenlist instance for this chain
   const tokenlist = await getTokenlistInstance(chainId);
   
-  // Retrieve tokens from the tokenlist
-  console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
-  const tokens = await tokenlist.getAllGeneralTokens();
+  // Create an array to collect all tokens
+  let allTokens: any[] = [];
   
-  console.log(`Received ${tokens.length} tokens for chain ${chainId}`);
+  // Retrieve general tokens from the tokenlist
+  console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
+  const generalTokens = await tokenlist.getAllGeneralTokens();
+  allTokens = [...generalTokens];
+  console.log(`Received ${generalTokens.length} general tokens for chain ${chainId}`);
+  
+  // Get Pro Vaults for Arbitrum
+  if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+    try {
+      console.log('Getting Pro Vault tokens...');
+      const proVaultTokens = await tokenlist.getAllProVaultsTokens();
+      
+      if (proVaultTokens && proVaultTokens.length > 0) {
+        // Process Pro Vault tokens to match our format
+        const processedProVaultTokens = proVaultTokens.map(vault => ({
+          address: vault.vaultAddress,
+          name: vault.name,
+          symbol: vault.symbol,
+          decimals: vault.decimals || 18,
+          chainId: chainId,
+          protocols: ['pro-vaults'],
+          buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+          logoURI: vault.logoURI,
+          extensions: {
+            protocols: ['pro-vaults'],
+            buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+            vaultInfo: {
+              vaultAddress: vault.vaultAddress,
+              strategyAddress: vault.strategyAddress,
+              depositToken: vault.depositToken,
+              apy: vault.apy,
+              deprecated: vault.deprecated
+            }
+          }
+        }));
+        
+        allTokens = [...allTokens, ...processedProVaultTokens];
+        console.log(`Added ${processedProVaultTokens.length} Pro Vault tokens`);
+      } else {
+        console.log('No Pro Vault tokens found');
+      }
+    } catch (error) {
+      console.warn('Failed to load Pro Vault tokens:', error);
+    }
+  }
   
   // Convert tokens to the format required by the frontend
-  return tokens.map((token: any) => convertToken(token, chainId));
+  return allTokens.map((token: any) => convertToken(token, chainId));
 }
 
 // Function to convert from tokenlist Token to frontend Token format
