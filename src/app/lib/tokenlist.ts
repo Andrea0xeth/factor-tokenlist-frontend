@@ -73,21 +73,154 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     .filter(name => typeof (tokenlist as any)[name] === 'function');
   console.log('🕵️ Available methods:', methodNames);
 
-  // Specific protocol token retrieval methods
+  // Specific protocol token retrieval methods with enhanced handling
   const protocolMethods = [
-    { method: 'getAllPendleTokens', name: 'PENDLE' },
-    { method: 'getAllSiloTokens', name: 'SILO' }
+    { 
+      method: 'getAllPendleTokens', 
+      name: 'PENDLE',
+      processTokens: (tokens: any[]) => {
+        // Process Pendle tokens to extract all relevant token types
+        const processedPendleTokens: Token[] = [];
+        tokens.forEach(pendleToken => {
+          // Add Principal Token (PT)
+          if (pendleToken.pt) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.pt, chainId),
+              protocols: ['pendle', 'pt'],
+              buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
+              extensions: {
+                pendleTokenType: 'PT',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+          
+          // Add Yield Token (YT)
+          if (pendleToken.yt) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.yt, chainId),
+              protocols: ['pendle', 'yt'],
+              buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
+              extensions: {
+                pendleTokenType: 'YT',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+          
+          // Add Liquidity Pool Token (LP)
+          if (pendleToken.lp) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.lp, chainId),
+              protocols: ['pendle', 'lp'],
+              buildingBlocks: [
+                BuildingBlock.PROVIDE_LIQUIDITY, 
+                BuildingBlock.REMOVE_LIQUIDITY
+              ],
+              extensions: {
+                pendleTokenType: 'LP',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+        });
+        return processedPendleTokens;
+      }
+    },
+    { 
+      method: 'getAllSiloTokens', 
+      name: 'SILO',
+      processTokens: (tokens: any[]) => {
+        // Process Silo tokens to extract all relevant token types
+        const processedSiloTokens: Token[] = [];
+        tokens.forEach(siloMarket => {
+          // Process each asset in the Silo market
+          siloMarket.asset.forEach((asset: any) => {
+            // Underlying Asset
+            if (asset.underlyingAsset) {
+              processedSiloTokens.push({
+                ...convertToken(asset.underlyingAsset, chainId),
+                protocols: ['silo', 'underlying'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.BORROW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'UNDERLYING'
+                }
+              });
+            }
+            
+            // Debt Token
+            if (asset.debtToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.debtToken, chainId),
+                protocols: ['silo', 'debt'],
+                buildingBlocks: [
+                  BuildingBlock.BORROW, 
+                  BuildingBlock.REPAY
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'DEBT'
+                }
+              });
+            }
+            
+            // Collateral Token
+            if (asset.collateralToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.collateralToken, chainId),
+                protocols: ['silo', 'collateral'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.WITHDRAW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'COLLATERAL'
+                }
+              });
+            }
+            
+            // Collateral Only Token
+            if (asset.collateralOnlyToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.collateralOnlyToken, chainId),
+                protocols: ['silo', 'collateral-only'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.WITHDRAW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'COLLATERAL_ONLY'
+                }
+              });
+            }
+          });
+        });
+        return processedSiloTokens;
+      }
+    }
   ];
 
-  for (const { method, name } of protocolMethods) {
+  // Retrieve and process specific protocol tokens
+  for (const { method, name, processTokens } of protocolMethods) {
     if (methodNames.includes(method)) {
       try {
         console.log(`🔬 Attempting to retrieve ${name} tokens using ${method}...`);
         const tokens = await (tokenlist as any)[method]();
         
         if (tokens && tokens.length > 0) {
-          console.log(`✅ Found ${tokens.length} ${name} tokens`);
-          allTokens.push(...tokens);
+          const processedTokens = processTokens(tokens);
+          console.log(`✅ Found and processed ${processedTokens.length} ${name} tokens`);
+          allTokens.push(...processedTokens);
         } else {
           console.log(`❌ No ${name} tokens found`);
         }

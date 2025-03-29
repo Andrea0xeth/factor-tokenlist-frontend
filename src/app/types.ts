@@ -11,6 +11,16 @@ export interface Token {
   extensions?: {
     protocols?: string[];
     buildingBlocks?: string[];
+    // Pendle-specific extensions
+    pendleTokenType?: 'PT' | 'YT' | 'LP';
+    expiry?: string;
+    
+    // Silo-specific extensions
+    siloMarketName?: string;
+    siloMarketAddress?: string;
+    siloTokenType?: 'UNDERLYING' | 'DEBT' | 'COLLATERAL' | 'COLLATERAL_ONLY';
+    
+    // Pro Vaults extensions
     vaultInfo?: {
       vaultAddress?: string;
       strategyAddress?: string;
@@ -18,6 +28,8 @@ export interface Token {
       apy?: number;
       deprecated?: boolean;
     };
+    
+    // Allow additional arbitrary properties
     [key: string]: any;
   };
 } 
