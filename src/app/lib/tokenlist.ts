@@ -152,36 +152,94 @@ function getChainName(chainId: number): string {
 export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): Promise<Protocol[]> {
   console.log(`Getting protocols for chain ${chainId}...`);
   
-  const tokenlist = await getTokenlistInstance(chainId);
-  
-  // We use the tokenlist methods directly
-  // We use type assertion to work around TypeScript issues
-  const getAllProtocolsMethod = (tokenlist as any).getAllProtocols;
-  
-  if (typeof getAllProtocolsMethod === 'function') {
-    const protocols = await getAllProtocolsMethod.call(tokenlist);
-    console.log(`Retrieved ${protocols.length} protocols from tokenlist`);
+  try {
+    // Get the tokenlist instance for this chain
+    const tokenlist = await getTokenlistInstance(chainId);
     
-    if (protocols.length > 0) {
-      return protocols.map((protocol: any) => ({
-        id: protocol.id || protocol.name.toLowerCase(),
-        name: protocol.name,
-        logoURI: protocol.logoURI || `/icons/protocols/${protocol.id || protocol.name.toLowerCase()}.png`
-      }));
+    // Log available methods for debugging
+    console.log('Available methods in FactorTokenlist:', Object.getOwnPropertyNames(Object.getPrototypeOf(tokenlist)));
+    
+    // Check if the getAllProtocols method exists
+    if (typeof (tokenlist as any).getAllProtocols === 'function') {
+      console.log(`Calling getAllProtocols for chain ${chainId}...`);
+      
+      // Call the method with the specific chainId
+      const protocols = await (tokenlist as any).getAllProtocols(chainId);
+      
+      console.log(`Retrieved ${protocols?.length || 0} protocols from tokenlist for chain ${chainId}`);
+      
+      if (protocols && protocols.length > 0) {
+        return protocols.map((protocol: any) => ({
+          id: protocol.id || protocol.name.toLowerCase(),
+          name: protocol.name,
+          logoURI: protocol.logoURI || `/icons/protocols/${protocol.id || protocol.name.toLowerCase()}.png`,
+          chainId: protocol.chainId || chainId
+        }));
+      }
     }
+    
+    // Try other possible method names
+    if (typeof (tokenlist as any).getProtocols === 'function') {
+      console.log(`Calling getProtocols for chain ${chainId}...`);
+      
+      // Call the method with the specific chainId
+      const protocols = await (tokenlist as any).getProtocols(chainId);
+      
+      console.log(`Retrieved ${protocols?.length || 0} protocols from tokenlist for chain ${chainId} using getProtocols method`);
+      
+      if (protocols && protocols.length > 0) {
+        return protocols.map((protocol: any) => ({
+          id: protocol.id || protocol.name.toLowerCase(),
+          name: protocol.name,
+          logoURI: protocol.logoURI || `/icons/protocols/${protocol.id || protocol.name.toLowerCase()}.png`,
+          chainId: protocol.chainId || chainId
+        }));
+      }
+    }
+    
+    console.warn(`No protocols found for chain ${chainId} from the NPM package, using example data`);
+  } catch (error) {
+    console.error(`Error getting protocols for chain ${chainId}:`, error);
   }
   
-  console.warn('getAllProtocols not available in tokenlist or returned zero protocols, using example data');
+  // Return chain-specific example protocols if the tokenlist doesn't provide any
+  return getExampleProtocolsForChain(chainId);
+}
+
+// Helper function to return example protocols based on chain
+function getExampleProtocolsForChain(chainId: number): Protocol[] {
+  console.log(`Using example protocols for chain ${chainId}`);
   
-  // Return some example protocols if the tokenlist doesn't provide any
-  return [
-    { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png' },
-    { id: 'aave', name: 'Aave', logoURI: '/icons/protocols/aave.png' },
-    { id: 'compound', name: 'Compound', logoURI: '/icons/protocols/compound.png' },
-    { id: 'sushiswap', name: 'SushiSwap', logoURI: '/icons/protocols/default.svg' },
-    { id: 'curve', name: 'Curve', logoURI: '/icons/protocols/default.svg' },
-    { id: 'balancer', name: 'Balancer', logoURI: '/icons/protocols/balancer.png' },
-  ];
+  switch(chainId) {
+    case ChainId.ARBITRUM_ONE:
+      return [
+        { id: 'gmx', name: 'GMX', logoURI: '/icons/protocols/default.svg', chainId },
+        { id: 'camelot', name: 'Camelot', logoURI: '/icons/protocols/camelot.png', chainId },
+        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId },
+        { id: 'aave', name: 'Aave', logoURI: '/icons/protocols/aave.png', chainId },
+        { id: 'sushiswap', name: 'SushiSwap', logoURI: '/icons/protocols/default.svg', chainId },
+      ];
+    case ChainId.BASE:
+      return [
+        { id: 'aerodrome', name: 'Aerodrome', logoURI: '/icons/protocols/default.svg', chainId },
+        { id: 'baseswap', name: 'BaseSwap', logoURI: '/icons/protocols/default.svg', chainId },
+        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId },
+        { id: 'compound', name: 'Compound', logoURI: '/icons/protocols/compound.png', chainId },
+      ];
+    case ChainId.OPTIMISM:
+      return [
+        { id: 'velodrome', name: 'Velodrome', logoURI: '/icons/protocols/default.svg', chainId },
+        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId },
+        { id: 'aave', name: 'Aave', logoURI: '/icons/protocols/aave.png', chainId },
+        { id: 'synthetix', name: 'Synthetix', logoURI: '/icons/protocols/default.svg', chainId },
+      ];
+    default:
+      return [
+        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId },
+        { id: 'aave', name: 'Aave', logoURI: '/icons/protocols/aave.png', chainId },
+        { id: 'compound', name: 'Compound', logoURI: '/icons/protocols/compound.png', chainId },
+      ];
+  }
 }
 
 // Function to get available actions for a token on a specific protocol

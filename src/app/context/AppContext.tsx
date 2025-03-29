@@ -213,6 +213,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       result = result.filter(token => {
         if (!token.protocols) return false;
         
+        // Il token deve essere sulla stessa chain del filtro selezionato
+        const matchingProtocol = state.protocols.find(p => 
+          p.id.toLowerCase() === selectedProtocolId.toLowerCase() && 
+          p.chainId === token.chainId
+        );
+        
+        if (!matchingProtocol) return false;
+        
         if (Array.isArray(token.protocols)) {
           return token.protocols.some(p => {
             if (typeof p === 'string') {
