@@ -92,9 +92,15 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
               Address
             </span>
-            <span className="text-xs font-mono text-gray-900 dark:text-white truncate max-w-[180px]">
+            <a 
+              href={`https://etherscan.io/token/${token.address}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"
+              onClick={(e) => e.stopPropagation()}
+            >
               {token.address}
-            </span>
+            </a>
           </div>
         </div>
 

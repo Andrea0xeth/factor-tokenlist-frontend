@@ -249,9 +249,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Load initial data
   useEffect(() => {
-    loadProtocols(state.selectedChain);
-    loadTokens(state.selectedChain);
-  }, []);
+    const initializeApp = async () => {
+      try {
+        const { selectedChain } = state;
+        console.log(`Initializing app with chain ${selectedChain}...`);
+        
+        await Promise.all([
+          loadTokens(selectedChain),
+          loadProtocols(selectedChain)
+        ]);
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        dispatch({ type: 'SET_ERROR', payload: `Failed to initialize app: ${(error as Error).message}` });
+      }
+    };
+
+    initializeApp();
+  }, [state.selectedChain, loadTokens, loadProtocols, dispatch]);
 
   const contextValue: AppContextType = {
     state,

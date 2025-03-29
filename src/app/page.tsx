@@ -92,9 +92,8 @@ export default function Home() {
               </label>
               <ProtocolFilter 
                 protocols={protocols} 
-                selectedProtocolId={selectedProtocolId}
+                selected={selectedProtocolId}
                 onChange={setSelectedProtocol}
-                isLoading={isLoading}
               />
             </div>
             

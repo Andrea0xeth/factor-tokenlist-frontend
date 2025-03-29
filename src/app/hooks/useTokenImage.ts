@@ -60,11 +60,11 @@ export default function useTokenImage({
       `https://s2.coinmarketcap.com/static/img/coins/64x64/${cleanSymbol.toLowerCase()}.png`,
       `https://assets.coingecko.com/coins/images/1/small/${cleanSymbol.toLowerCase()}.png?1547033579`,
       // SVG placeholder for final fallback
-      `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="%23666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="10" fill="%23666">${cleanSymbol?.slice(0, 3) || '?'}</text></svg>`
+      `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="${color}" /><text x="12" y="16" text-anchor="middle" font-size="10" fill="white" font-family="Arial, sans-serif">${cleanSymbol?.slice(0, 3) || '?'}</text></svg>`
     ].filter(Boolean) as string[];
 
     return sources;
-  }, [src, cleanSymbol, tokenAddress]);
+  }, [src, cleanSymbol, tokenAddress, color]);
 
   // Current image source
   const currentSrc = useMemo(() => {
