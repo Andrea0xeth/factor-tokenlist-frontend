@@ -18,22 +18,6 @@ const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
   [BuildingBlock.ZAP]: 'Zap',
 };
 
-// Helper function to get the correct Etherscan URL based on chain ID
-function getExplorerUrl(chainId: number, address: string): string {
-  switch(chainId) {
-    case 42161: // Arbitrum
-      return `https://arbiscan.io/token/${address}`;
-    case 10: // Optimism
-      return `https://optimistic.etherscan.io/token/${address}`;
-    case 8453: // Base
-      return `https://basescan.org/token/${address}`;
-    case 1: // Ethereum
-      return `https://etherscan.io/token/${address}`;
-    default:
-      return `https://etherscan.io/token/${address}`;
-  }
-}
-
 interface TokenCardProps {
   token: TokenInfo;
   isSelected?: boolean;
@@ -48,17 +32,13 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
-  
-  // Get the building blocks from either the direct property or extensions
-  const buildingBlocks = token.buildingBlocks || token.extensions?.buildingBlocks || [];
-  const hasBuildingBlocks = buildingBlocks.length > 0;
-  
-  // Get the protocols from either the direct property or extensions
-  const protocols = token.protocols || token.extensions?.protocols || [];
+  const hasBuildingBlocks = token.extensions?.buildingBlocks && token.extensions.buildingBlocks.length > 0;
   
   // Extract token details
   const symbol = token.symbol || '';
   const name = token.name || '';
+  const protocols = token.extensions?.protocols || [];
+  const buildingBlocks = token.extensions?.buildingBlocks || [];
   
   // Handle click event
   const handleClick = () => {
@@ -113,7 +93,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               Address
             </span>
             <a 
-              href={getExplorerUrl(token.chainId, token.address)}
+              href={`https://etherscan.io/token/${token.address}`}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"

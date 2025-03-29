@@ -3,19 +3,6 @@
 import React, { useState } from 'react';
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid';
 import { Combobox } from '@headlessui/react';
-import { BuildingBlock } from '@factordao/tokenlist';
-
-// Map of building blocks with their readable names
-const BUILDING_BLOCK_NAMES: Record<string, string> = {
-  [BuildingBlock.BORROW]: 'Borrow',
-  [BuildingBlock.CDP]: 'CDP',
-  [BuildingBlock.DEPOSIT]: 'Deposit',
-  [BuildingBlock.GRANTREWARDS]: 'Grant Rewards',
-  [BuildingBlock.STAKE]: 'Stake',
-  [BuildingBlock.TRANSFER]: 'Transfer',
-  [BuildingBlock.WITHDRAW]: 'Withdraw',
-  [BuildingBlock.ZAP]: 'Zap',
-};
 
 interface BuildingBlockFilterProps {
   buildingBlocks: string[];
@@ -36,27 +23,19 @@ export default function BuildingBlockFilter({
   // Filter building blocks based on search query
   const filteredBuildingBlocks = query === ''
     ? buildingBlocks
-    : buildingBlocks.filter((buildingBlock) => {
-        const friendlyName = BUILDING_BLOCK_NAMES[buildingBlock] || buildingBlock;
-        return friendlyName.toLowerCase().includes(query.toLowerCase()) ||
-               buildingBlock.toLowerCase().includes(query.toLowerCase());
-      });
-
-  // Get the friendly name for the selected building block
-  const selectedFriendlyName = selected ? (BUILDING_BLOCK_NAMES[selected] || selected) : null;
+    : buildingBlocks.filter((buildingBlock) =>
+        buildingBlock.toLowerCase().includes(query.toLowerCase())
+      );
 
   // Placeholder text for the input field
-  const placeholderText = selectedFriendlyName || "Filter by building block";
+  const placeholderText = selected || "Filter by building block";
 
   // List of available building blocks with the selected one at the top
   const sortedBuildingBlocks = Array.isArray(filteredBuildingBlocks) 
     ? [...filteredBuildingBlocks].sort((a, b) => {
         if (a === selected) return -1;
         if (b === selected) return 1;
-        
-        const nameA = BUILDING_BLOCK_NAMES[a] || a;
-        const nameB = BUILDING_BLOCK_NAMES[b] || b;
-        return nameA.localeCompare(nameB);
+        return a.localeCompare(b);
       })
     : [];
 
@@ -67,9 +46,7 @@ export default function BuildingBlockFilter({
           <div className="relative w-full cursor-default overflow-hidden rounded-md bg-white dark:bg-slate-800 text-left shadow-md focus:outline-none sm:text-sm border border-gray-300 dark:border-slate-700">
             <Combobox.Input
               className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white focus:ring-0 bg-transparent"
-              displayValue={(buildingBlock: string | null) => 
-                buildingBlock ? (BUILDING_BLOCK_NAMES[buildingBlock] || buildingBlock) : ''
-              }
+              displayValue={(buildingBlock: string | null) => buildingBlock || ''}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={placeholderText}
             />
@@ -126,7 +103,7 @@ export default function BuildingBlockFilter({
                   {({ selected: isSelected, active }) => (
                     <>
                       <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
-                        {BUILDING_BLOCK_NAMES[buildingBlock] || buildingBlock}
+                        {buildingBlock}
                       </span>
                       {isSelected ? (
                         <span

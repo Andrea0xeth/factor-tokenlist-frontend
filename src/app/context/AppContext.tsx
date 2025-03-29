@@ -213,36 +213,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       result = result.filter(token => {
         if (!token.protocols) return false;
         
-        // Il token deve essere sulla stessa chain del filtro selezionato
-        const matchingProtocol = state.protocols.find(p => 
-          p.id.toLowerCase() === selectedProtocolId.toLowerCase() && 
-          p.chainId === token.chainId
-        );
-        
-        if (!matchingProtocol) return false;
-        
-        // Check in both possible locations of protocols
-        const tokenProtocols = Array.isArray(token.protocols) ? token.protocols : 
-                              Array.isArray(token.extensions?.protocols) ? token.extensions.protocols : [];
-                              
-        return tokenProtocols.some(p => {
-          if (typeof p === 'string') {
-            return p.toLowerCase() === selectedProtocolId.toLowerCase();
-          } else if (p && typeof p === 'object' && 'id' in p) {
-            return (p as any).id.toLowerCase() === selectedProtocolId.toLowerCase();
-          }
-          return String(p).toLowerCase() === selectedProtocolId.toLowerCase();
-        });
+        if (Array.isArray(token.protocols)) {
+          return token.protocols.some(p => {
+            if (typeof p === 'string') {
+              return p.toLowerCase() === selectedProtocolId.toLowerCase();
+            } else if (p && typeof p === 'object' && 'id' in p) {
+              return (p as any).id.toLowerCase() === selectedProtocolId.toLowerCase();
+            }
+            return String(p).toLowerCase() === selectedProtocolId.toLowerCase();
+          });
+        }
+        return false;
       });
     }
     
     // Filter by building block
     if (selectedBuildingBlock) {
-      result = result.filter(token => {
-        // Check in both possible locations of building blocks
-        const tokenBuildingBlocks = token.buildingBlocks || token.extensions?.buildingBlocks || [];
-        return tokenBuildingBlocks.includes(selectedBuildingBlock);
-      });
+      result = result.filter(token => 
+        token.buildingBlocks?.includes(selectedBuildingBlock)
+      );
     }
     
     // Filter by text

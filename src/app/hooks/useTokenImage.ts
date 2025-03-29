@@ -50,23 +50,6 @@ export default function useTokenImage({
     return '';
   }, [address, src]);
 
-  // Color generated from the symbol for the placeholder
-  const color = useMemo(() => {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#FF9F1C', '#A78BFA', '#F87171',
-      '#10B981', '#3B82F6', '#EC4899', '#6366F1', '#14B8A6'
-    ];
-    
-    // Simple hash function to generate an index
-    let hash = 0;
-    for (let i = 0; i < cleanSymbol.length; i++) {
-      hash = cleanSymbol.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
-  }, [cleanSymbol]);
-
   // Array of image sources to try in sequence
   const fallbackSources = useMemo(() => {
     const sources = [
@@ -87,6 +70,23 @@ export default function useTokenImage({
   const currentSrc = useMemo(() => {
     return fallbackSources[Math.min(fallbackIndex, fallbackSources.length - 1)];
   }, [fallbackSources, fallbackIndex]);
+
+  // Color generated from the symbol for the placeholder
+  const color = useMemo(() => {
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#FF9F1C', '#A78BFA', '#F87171',
+      '#10B981', '#3B82F6', '#EC4899', '#6366F1', '#14B8A6'
+    ];
+    
+    // Simple hash function to generate an index
+    let hash = 0;
+    for (let i = 0; i < cleanSymbol.length; i++) {
+      hash = cleanSymbol.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  }, [cleanSymbol]);
 
   // Function to handle error and move to the next source
   const handleImageError = useCallback(() => {

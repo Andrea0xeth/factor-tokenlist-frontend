@@ -91,7 +91,7 @@ export default function Home() {
                 Protocol
               </label>
               <ProtocolFilter 
-                protocols={protocols.filter(p => p.chainId === selectedChain)} 
+                protocols={protocols} 
                 selected={selectedProtocolId}
                 onChange={setSelectedProtocol}
               />
@@ -105,6 +105,7 @@ export default function Home() {
                 buildingBlocks={Object.values(BuildingBlock)}
                 selected={selectedBuildingBlock}
                 onChange={setSelectedBuildingBlock}
+                isLoading={isLoading}
               />
             </div>
           </div>
