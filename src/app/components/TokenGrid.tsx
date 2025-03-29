@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Token, Protocol } from '../types';
+import { Token, Protocol } from '../types/index';
 import TokenCard from './TokenCard';
 
 interface TokenGridProps {
