@@ -1,1 +1,1 @@
-export { Token, Protocol, Action, Chain, SelectOption, StrapiToken } from './types/index'; 
+export type { Token, Protocol, Action, Chain, SelectOption, StrapiToken } from './types/index'; 

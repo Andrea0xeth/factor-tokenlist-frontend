@@ -21,6 +21,19 @@ export const buildingBlockToAction: Record<string, string> = {
   [BuildingBlock.STAKE]: 'Stake',
 };
 
+// Interface for Pro Vault tokens from the tokenlist
+interface ProVaultToken {
+  vaultAddress: string;
+  name: string;
+  symbol: string;
+  decimals?: number;
+  logoURI?: string;
+  strategyAddress?: string;
+  depositToken?: string;
+  apy?: number;
+  deprecated?: boolean;
+}
+
 // Cache of FactorTokenlist instances to avoid recreating them each time
 const tokenlistInstances: Record<number, FactorTokenlist> = {};
 // Track which instances have already initialized Pro Vaults
@@ -236,11 +249,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
     try {
       console.log('🏦 Getting Pro Vault tokens...');
-      const proVaultTokens = await tokenlist.getAllProVaultsTokens();
+      const proVaultTokens = await tokenlist.getAllProVaultsTokens() as unknown as ProVaultToken[];
       
       if (proVaultTokens && proVaultTokens.length > 0) {
         // Process Pro Vault tokens to match our format
-        const processedProVaultTokens = proVaultTokens.map(vault => ({
+        const processedProVaultTokens = proVaultTokens.map((vault: ProVaultToken) => ({
           address: vault.vaultAddress,
           name: vault.name,
           symbol: vault.symbol,
@@ -249,6 +262,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
           protocols: ['pro-vaults'],
           buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
           logoURI: vault.logoURI,
+          vaultAddress: vault.vaultAddress,
           extensions: {
             protocols: ['pro-vaults'],
             buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
@@ -304,6 +318,7 @@ function convertToken(token: any, chainId: number): Token {
     tags: token.tags || [],
     protocols: protocols,
     buildingBlocks: buildingBlocks,
+    ...(token.vaultAddress && { vaultAddress: token.vaultAddress }),
     extensions: {
       ...(token.extensions || {}),
       protocols: protocols,
@@ -489,22 +504,24 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
     }
   }
   
-  // 4. Check if any tokens from getAllGeneralTokens belong to specific protocols
+  // 4. Extract protocols from all tokens
   try {
-    const allTokens = await tokenlist.getAllGeneralTokens();
-    console.log(`Examining ${allTokens.length} general tokens for protocol information...`);
-    
-    // Extract unique protocol IDs from the tokens
+    console.log('Extracting protocols from all tokens...');
+    // Try to get all tokens using an empty protocols array
+    const tokens = await tokenlist.getTokens([]);
     const protocolIdsFromTokens = new Set<string>();
-    for (const token of allTokens) {
+    
+    for (const token of tokens) {
       if (token.protocols && Array.isArray(token.protocols)) {
         token.protocols.forEach((p: string) => {
           if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
         });
       } 
       
-      if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
-        token.extensions.protocols.forEach((p: string) => {
+      // Use safe type assertions for extensions
+      const tokenWithExtensions = token as unknown as { extensions?: { protocols?: string[] } };
+      if (tokenWithExtensions.extensions?.protocols && Array.isArray(tokenWithExtensions.extensions.protocols)) {
+        tokenWithExtensions.extensions.protocols.forEach((p: string) => {
           if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
         });
       }

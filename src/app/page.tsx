@@ -93,7 +93,7 @@ export default function Home() {
                 <BuildingBlockFilter 
                   buildingBlocks={Object.values(BuildingBlock)}
                   selected={selectedBuildingBlock}
-                  onChange={setSelectedBuildingBlock}
+                  onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
                   isLoading={isLoading}
                 />
               </div>

@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid';
 import { Combobox } from '@headlessui/react';
+import { BuildingBlock } from '@factordao/tokenlist';
 
 interface BuildingBlockFilterProps {
-  buildingBlocks: string[];
-  selected: string | null;
-  onChange: (buildingBlock: string | null) => void;
+  buildingBlocks: (BuildingBlock | string)[];
+  selected: BuildingBlock | string | null;
+  onChange: (buildingBlock: BuildingBlock | string | null) => void;
+  isLoading?: boolean;
 }
 
 /**
@@ -16,7 +18,8 @@ interface BuildingBlockFilterProps {
 export default function BuildingBlockFilter({
   buildingBlocks = [],
   selected,
-  onChange
+  onChange,
+  isLoading = false
 }: BuildingBlockFilterProps) {
   const [query, setQuery] = useState('');
 
@@ -24,31 +27,32 @@ export default function BuildingBlockFilter({
   const filteredBuildingBlocks = query === ''
     ? buildingBlocks
     : buildingBlocks.filter((buildingBlock) =>
-        buildingBlock.toLowerCase().includes(query.toLowerCase())
+        String(buildingBlock).toLowerCase().includes(query.toLowerCase())
       );
 
   // Placeholder text for the input field
-  const placeholderText = selected || "Filter by building block";
+  const placeholderText = selected ? String(selected) : "Filter by building block";
 
   // List of available building blocks with the selected one at the top
   const sortedBuildingBlocks = Array.isArray(filteredBuildingBlocks) 
     ? [...filteredBuildingBlocks].sort((a, b) => {
         if (a === selected) return -1;
         if (b === selected) return 1;
-        return a.localeCompare(b);
+        return String(a).localeCompare(String(b));
       })
     : [];
 
   return (
     <div className="w-full max-w-xs">
-      <Combobox value={selected} onChange={onChange}>
+      <Combobox value={selected} onChange={onChange} disabled={isLoading}>
         <div className="relative">
-          <div className="relative w-full cursor-default overflow-hidden rounded-md bg-white dark:bg-slate-800 text-left shadow-md focus:outline-none sm:text-sm border border-gray-300 dark:border-slate-700">
+          <div className={`relative w-full cursor-default overflow-hidden rounded-md bg-white dark:bg-slate-800 text-left shadow-md focus:outline-none sm:text-sm border border-gray-300 dark:border-slate-700 ${isLoading ? 'opacity-70' : ''}`}>
             <Combobox.Input
               className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white focus:ring-0 bg-transparent"
-              displayValue={(buildingBlock: string | null) => buildingBlock || ''}
+              displayValue={(buildingBlock: BuildingBlock | string | null) => buildingBlock ? String(buildingBlock) : ''}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={placeholderText}
+              disabled={isLoading}
             />
             <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
               <ChevronUpDownIcon
@@ -92,7 +96,7 @@ export default function BuildingBlockFilter({
             ) : (
               sortedBuildingBlocks.map((buildingBlock) => (
                 <Combobox.Option
-                  key={buildingBlock}
+                  key={String(buildingBlock)}
                   className={({ active }) =>
                     `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
                       active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-white'
@@ -103,7 +107,7 @@ export default function BuildingBlockFilter({
                   {({ selected: isSelected, active }) => (
                     <>
                       <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
-                        {buildingBlock}
+                        {String(buildingBlock)}
                       </span>
                       {isSelected ? (
                         <span

@@ -11,6 +11,13 @@ interface ChainInfo {
   testnet: boolean;
 }
 
+// Definizione di costanti per chain ID che potrebbero non essere presenti nell'enum ChainId
+const ETHEREUM = 1;
+const BLAST = 81457;
+const ZORA = 7777777;
+const LINEA = 59144;
+const MODE = 34443;
+
 // Mappa delle informazioni per ogni chain supportata
 const CHAIN_INFO: Record<number, ChainInfo> = {
   [ChainId.ARBITRUM_ONE]: {
@@ -51,7 +58,7 @@ const CHAIN_INFO: Record<number, ChainInfo> = {
  */
 export function getChainName(chainId: number): string {
   switch (chainId) {
-    case ChainId.ETHEREUM:
+    case ETHEREUM:
       return 'Ethereum';
     case ChainId.ARBITRUM_ONE:
       return 'Arbitrum One';
@@ -59,13 +66,13 @@ export function getChainName(chainId: number): string {
       return 'Optimism';
     case ChainId.BASE:
       return 'Base';
-    case ChainId.BLAST:
+    case BLAST:
       return 'Blast';
-    case ChainId.ZORA:
+    case ZORA:
       return 'Zora';
-    case ChainId.LINEA:
+    case LINEA:
       return 'Linea';
-    case ChainId.MODE:
+    case MODE:
       return 'Mode';
     default:
       return `Chain ${chainId}`;
@@ -77,7 +84,7 @@ export function getChainName(chainId: number): string {
  */
 export function getChainColor(chainId: number): string {
   switch (chainId) {
-    case ChainId.ETHEREUM:
+    case ETHEREUM:
       return '#627EEA';
     case ChainId.ARBITRUM_ONE:
       return '#2D374B';
@@ -85,13 +92,13 @@ export function getChainColor(chainId: number): string {
       return '#FF0420';
     case ChainId.BASE:
       return '#0052FF';
-    case ChainId.BLAST:
+    case BLAST:
       return '#FFAA3E';
-    case ChainId.ZORA:
+    case ZORA:
       return '#909090';
-    case ChainId.LINEA:
+    case LINEA:
       return '#0CF0A9';
-    case ChainId.MODE:
+    case MODE:
       return '#0C0C0F';
     default:
       return '#888888';
@@ -105,7 +112,7 @@ export function getExplorerUrl(chainId: number, address: string): string {
   let baseUrl = '';
   
   switch (chainId) {
-    case ChainId.ETHEREUM:
+    case ETHEREUM:
       baseUrl = 'https://etherscan.io';
       break;
     case ChainId.ARBITRUM_ONE:
@@ -117,16 +124,16 @@ export function getExplorerUrl(chainId: number, address: string): string {
     case ChainId.BASE:
       baseUrl = 'https://basescan.org';
       break;
-    case ChainId.BLAST:
+    case BLAST:
       baseUrl = 'https://blastscan.io';
       break;
-    case ChainId.ZORA:
+    case ZORA:
       baseUrl = 'https://explorer.zora.energy';
       break;
-    case ChainId.LINEA:
+    case LINEA:
       baseUrl = 'https://lineascan.build';
       break;
-    case ChainId.MODE:
+    case MODE:
       baseUrl = 'https://explorer.mode.network';
       break;
     default:
