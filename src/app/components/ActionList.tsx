@@ -1,4 +1,4 @@
-import { Token, Protocol, Action } from '../types';
+import { Token, Protocol, Action } from '../types/index';
 
 interface ActionListProps {
   actions: Action[];
