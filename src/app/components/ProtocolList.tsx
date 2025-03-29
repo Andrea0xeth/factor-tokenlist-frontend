@@ -23,7 +23,7 @@ export default function ProtocolList({ protocols, token, onSelectProtocol, onSel
     <div className="space-y-2 mt-2">
       {protocols.map(protocol => {
         const isExpanded = expandedProtocolId === protocol.id;
-        const actions = isExpanded ? getActionsByTokenAndProtocol(token.id, protocol.id) : [];
+        const actions = isExpanded ? getActionsByTokenAndProtocol(token.address, protocol.id) : [];
         
         return (
           <div key={protocol.id} className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">

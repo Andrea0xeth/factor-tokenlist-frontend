@@ -562,8 +562,9 @@ export async function getActionsByTokenAndProtocol(
       id: action.id,
       name: action.name,
       description: action.description || '',
-      protocol: protocolId,
-      token: tokenId,
+      buildingBlock: action.buildingBlock || BuildingBlock.LEND,
+      protocolId: protocolId,
+      tokenAddress: tokenId,
       apy: action.apy || undefined
     }));
   }
