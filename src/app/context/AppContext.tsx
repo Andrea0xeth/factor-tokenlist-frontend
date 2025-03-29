@@ -1,10 +1,12 @@
 'use client';
 
-import { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect, useMemo } from 'react';
 import { Token, Protocol } from '../types';
 import { ChainId } from '@factordao/tokenlist';
 import { getAllTokens, getAllProtocols, SUPPORTED_CHAIN_IDS } from '../lib/tokenlist';
 import { BuildingBlock } from '@factordao/tokenlist';
+import { fetchProtocolsFromServer } from '../lib/api';
+import { REQUIRED_PROTOCOLS } from '../lib/constants';
 
 // State definitions
 interface AppState {
@@ -154,13 +156,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loadProtocols = useCallback(async (chainId: ChainId) => {
     try {
       console.log(`Loading protocols for chain ${chainId}...`);
+      
+      // First try to load protocols from the server
+      try {
+        const serverProtocols = await fetchProtocolsFromServer(chainId);
+        if (serverProtocols && serverProtocols.length > 0) {
+          console.log(`Loaded ${serverProtocols.length} protocols from server for chain ${chainId}`);
+          dispatch({ type: 'SET_PROTOCOLS', payload: serverProtocols });
+          return;
+        } else {
+          console.log('No protocols returned from server, falling back to local data');
+        }
+      } catch (error) {
+        console.error('Error loading protocols from server:', error);
+      }
+      
+      // Fall back to loading protocols locally if server fails
       const protocolsData = await getAllProtocols(chainId);
-      console.log(`Loaded ${protocolsData.length} protocols for chain ${chainId}`);
+      console.log(`Loaded ${protocolsData.length} protocols locally for chain ${chainId}`);
       
       dispatch({ type: 'SET_PROTOCOLS', payload: protocolsData });
     } catch (error) {
       console.error('Error loading protocols:', error);
-      dispatch({ type: 'SET_PROTOCOLS', payload: [] });
+      
+      // If all else fails, use the required protocols list
+      const requiredProtocols = REQUIRED_PROTOCOLS[chainId] || [];
+      console.log(`Using hardcoded list of ${requiredProtocols.length} protocols for chain ${chainId}`);
+      
+      const fallbackProtocols = requiredProtocols.map(id => ({
+        id,
+        name: id.charAt(0).toUpperCase() + id.slice(1),
+        logoURI: `/icons/protocols/${id}.png`,
+        chainId
+      }));
+      
+      dispatch({ type: 'SET_PROTOCOLS', payload: fallbackProtocols });
     }
   }, []);
 
@@ -250,6 +280,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load initial data
   useEffect(() => {
     const initializeApp = async () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      
       try {
         const { selectedChain } = state;
         console.log(`Initializing app with chain ${selectedChain}...`);
@@ -261,6 +293,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Error initializing app:', error);
         dispatch({ type: 'SET_ERROR', payload: `Failed to initialize app: ${(error as Error).message}` });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 

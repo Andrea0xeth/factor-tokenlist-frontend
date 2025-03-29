@@ -1,5 +1,6 @@
 import { Token, Protocol, Action } from '../types';
-import { FactorTokenlist, BuildingBlock, ChainId } from '@factordao/tokenlist';
+import { FactorTokenlist, BuildingBlock, ChainId, Protocols } from '@factordao/tokenlist';
+import { REQUIRED_PROTOCOLS, PROTOCOL_DISPLAY_NAMES, PROTOCOL_LOGOS } from './constants';
 
 // Definition of the data structure coming from Strapi API
 export interface StrapiToken {
@@ -109,204 +110,120 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
   const addedProtocolIds = new Set<string>();
   const protocols: Protocol[] = [];
   
+  // First add all required protocols for this chain
+  const requiredForChain = REQUIRED_PROTOCOLS[chainId] || [];
+  console.log(`Adding ${requiredForChain.length} required protocols for chain ${chainId}`);
+  
+  for (const id of requiredForChain) {
+    protocols.push({
+      id,
+      name: PROTOCOL_DISPLAY_NAMES[id] || getProtocolLabel(id),
+      logoURI: PROTOCOL_LOGOS[id] || `/icons/protocols/${id}.png`,
+      chainId
+    });
+    addedProtocolIds.add(id);
+  }
+  
   // Get all available method names on the tokenlist instance
   const methodNames = Object.getOwnPropertyNames(Object.getPrototypeOf(tokenlist))
     .filter(name => typeof (tokenlist as any)[name] === 'function');
   
   console.log(`Available methods for chain ${chainId}:`, methodNames);
   
-  // 1. Try specific protocol getter methods (getAllAaveTokens, getAllSiloTokens, etc.)
-  const specificProtocolMethods = methodNames.filter(name => name.startsWith('getAll') && name.endsWith('Tokens'));
-  for (const method of specificProtocolMethods) {
-    // Extract protocol name from method name (e.g., "getAllAaveTokens" -> "aave")
-    const protocolMatch = method.match(/^getAll(.+)Tokens$/);
-    if (!protocolMatch) continue;
-    
-    const protocolId = protocolMatch[1].toLowerCase();
-    if (addedProtocolIds.has(protocolId)) continue;
-    
+  // Try to initialize protocols that need special initialization
+  if (chainId === ChainId.ARBITRUM_ONE && methodNames.includes('initializeProVaultsTokens') && !initializedProVaults[chainId]) {
     try {
-      console.log(`Testing for ${protocolId} tokens using ${method}...`);
-      const tokens = await (tokenlist as any)[method]();
-      
-      if (tokens && tokens.length > 0) {
-        protocols.push({
-          id: protocolId,
-          name: getProtocolLabel(protocolId),
-          logoURI: `/icons/protocols/${protocolId}.png`,
-          chainId
-        });
-        addedProtocolIds.add(protocolId);
-        console.log(`✅ Added ${protocolId} protocol with ${tokens.length} tokens`);
-      } else {
-        console.log(`❌ No tokens found for ${protocolId} protocol`);
-      }
+      console.log('Initializing Pro Vaults for Arbitrum...');
+      await (tokenlist as any).initializeProVaultsTokens();
+      initializedProVaults[chainId] = true;
+      console.log('Pro Vaults initialization completed successfully');
     } catch (error) {
-      console.log(`❌ Method ${method} failed:`, error);
+      console.warn('Failed to initialize Pro Vaults:', error);
     }
   }
   
-  // 2. Try Pro Vaults specifically for Arbitrum
-  if (chainId === ChainId.ARBITRUM_ONE && !addedProtocolIds.has('pro-vaults') && methodNames.includes('getAllProVaultsTokens')) {
-    try {
-      // Ensure Pro Vaults are initialized
-      if (!initializedProVaults[chainId]) {
-        console.log('Initializing Pro Vaults for Arbitrum...');
-        await (tokenlist as any).initializeProVaultsTokens();
-        initializedProVaults[chainId] = true;
-      }
-      
-      console.log('Testing for Pro Vault tokens...');
-      const tokens = await (tokenlist as any).getAllProVaultsTokens();
-      
-      if (tokens && tokens.length > 0) {
-        protocols.push({
-          id: 'pro-vaults',
-          name: 'Pro Vaults',
-          logoURI: `/icons/protocols/default.svg`,
-          chainId
-        });
-        addedProtocolIds.add('pro-vaults');
-        console.log(`✅ Added Pro-Vaults protocol with ${tokens.length} vaults`);
-      } else {
-        console.log('❌ No Pro Vault tokens found');
-      }
-    } catch (error) {
-      console.log('❌ Pro Vaults method failed:', error);
-    }
-  }
+  // Now try to verify which protocols actually have tokens
+  console.log(`Verifying which protocols have tokens for chain ${chainId}...`);
   
-  // 3. Try the Protocols enum if available in the package
-  if (methodNames.includes('getTokensByProtocol')) {
+  // Function to check if a protocol has tokens
+  const protocolHasTokens = async (protocolId: string): Promise<boolean> => {
     try {
-      // Try to import the Protocols enum from the package
-      // Cannot use static import inside a function - use dynamic import instead
-      const { Protocols } = await import('@factordao/tokenlist');
-      
-      // Get all protocol values from the enum
-      const protocolValues = Object.values(Protocols).filter(value => typeof value === 'string');
-      console.log(`Found ${protocolValues.length} protocols in Protocols enum`);
-      
-      // Test each protocol to see if it has tokens on this chain
-      for (const protocol of protocolValues) {
-        const protocolId = typeof protocol === 'string' ? protocol.toLowerCase() : '';
-        if (!protocolId || addedProtocolIds.has(protocolId)) continue;
-        
+      // Try all possible ways to get tokens for this protocol
+      // 1. Try getTokensByProtocol
+      if (methodNames.includes('getTokensByProtocol')) {
         try {
-          console.log(`Testing for ${protocolId} tokens using getTokensByProtocol...`);
-          const tokens = await (tokenlist as any).getTokensByProtocol(protocol);
-          
+          const tokens = await (tokenlist as any).getTokensByProtocol(protocolId);
           if (tokens && tokens.length > 0) {
-            protocols.push({
-              id: protocolId,
-              name: getProtocolLabel(protocolId),
-              logoURI: `/icons/protocols/${protocolId}.png`,
-              chainId
-            });
-            addedProtocolIds.add(protocolId);
-            console.log(`✅ Added ${protocolId} protocol with ${tokens.length} tokens`);
-          } else {
-            console.log(`❌ No tokens found for ${protocolId} protocol`);
+            console.log(`✅ ${protocolId} has ${tokens.length} tokens via getTokensByProtocol`);
+            return true;
           }
         } catch (error) {
-          console.log(`❌ getTokensByProtocol failed for ${protocolId}:`, error);
+          // Silently fail, we'll try other methods
         }
       }
-    } catch (error) {
-      console.log('❌ Failed to use Protocols enum:', error);
       
-      // If we can't import the Protocols enum, try with known protocol IDs
-      const commonProtocolIds = [
-        'aave', 'compound', 'pendle', 'silo', 'morpho', 
-        'uniswap', 'balancer', 'camelot', 'velodrome', 'aerodrome', 'openocean'
-      ];
-      
-      for (const id of commonProtocolIds) {
-        if (addedProtocolIds.has(id)) continue;
-        
+      // 2. Try protocol-specific method like getAllAaveTokens
+      const specificMethod = `getAll${protocolId.charAt(0).toUpperCase() + protocolId.slice(1)}Tokens`;
+      if (methodNames.includes(specificMethod)) {
         try {
-          console.log(`Testing for ${id} tokens using getTokensByProtocol (common protocols)...`);
-          // Try both upper and lowercase
-          let tokens = null;
-          
-          try {
-            tokens = await (tokenlist as any).getTokensByProtocol(id.toUpperCase());
-          } catch (upperError) {
-            try {
-              tokens = await (tokenlist as any).getTokensByProtocol(id);
-            } catch (lowerError) {
-              console.log(`❌ Both case variants failed for ${id}`);
-              continue;
-            }
-          }
-          
+          const tokens = await (tokenlist as any)[specificMethod]();
           if (tokens && tokens.length > 0) {
-            protocols.push({
-              id,
-              name: getProtocolLabel(id),
-              logoURI: `/icons/protocols/${id}.png`,
-              chainId
-            });
-            addedProtocolIds.add(id);
-            console.log(`✅ Added ${id} protocol with ${tokens.length} tokens`);
-          } else {
-            console.log(`❌ No tokens found for ${id} protocol`);
+            console.log(`✅ ${protocolId} has ${tokens.length} tokens via ${specificMethod}`);
+            return true;
           }
         } catch (error) {
-          console.log(`❌ getTokensByProtocol failed for ${id}:`, error);
+          // Silently fail
         }
       }
-    }
-  }
-  
-  // 4. Check if any tokens from getAllGeneralTokens belong to specific protocols
-  try {
-    const allTokens = await tokenlist.getAllGeneralTokens();
-    console.log(`Examining ${allTokens.length} general tokens for protocol information...`);
-    
-    // Extract unique protocol IDs from the tokens
-    const protocolIdsFromTokens = new Set<string>();
-    for (const token of allTokens) {
-      if (token.protocols && Array.isArray(token.protocols)) {
-        token.protocols.forEach((p: string) => {
-          if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
-        });
-      } 
       
-      if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
-        token.extensions.protocols.forEach((p: string) => {
-          if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
-        });
+      // 3. Special case for Pro Vaults
+      if (protocolId === 'pro-vaults' && chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+        try {
+          const tokens = await (tokenlist as any).getAllProVaultsTokens();
+          if (tokens && tokens.length > 0) {
+            console.log(`✅ Pro Vaults has ${tokens.length} tokens`);
+            return true;
+          }
+        } catch (error) {
+          // Silently fail
+        }
       }
+      
+      console.log(`❌ ${protocolId} has no tokens that could be found`);
+      return false;
+    } catch (error) {
+      console.error(`Error checking tokens for ${protocolId}:`, error);
+      return false;
     }
-    
-    console.log(`Found ${protocolIdsFromTokens.size} unique protocols in token metadata:`, [...protocolIdsFromTokens]);
-    
-    // Add protocols found in tokens that we haven't added yet
-    for (const id of protocolIdsFromTokens) {
-      if (!addedProtocolIds.has(id)) {
-        protocols.push({
-          id,
-          name: getProtocolLabel(id),
-          logoURI: `/icons/protocols/${id}.png`,
-          chainId
-        });
-        addedProtocolIds.add(id);
-        console.log(`✅ Added ${id} protocol found in general tokens`);
-      }
-    }
-  } catch (error) {
-    console.log('❌ Failed to extract protocols from general tokens:', error);
-  }
+  };
   
-  // Log found protocols
-  console.log(`Found ${protocols.length} protocols for chain ${chainId}:`, 
-    protocols.map(p => p.id).join(', '));
+  // Create a map to track which protocols have tokens
+  const protocolsWithTokens = new Map<string, boolean>();
   
-  if (protocols.length === 0) {
-    console.warn(`No protocols were found for chain ${chainId} directly from NPM package!`);
-  }
+  // Check all required protocols in parallel
+  const checkPromises = requiredForChain.map(async (protocolId) => {
+    const hasTokens = await protocolHasTokens(protocolId);
+    protocolsWithTokens.set(protocolId, hasTokens);
+  });
   
+  await Promise.all(checkPromises);
+  
+  // Log which protocols have tokens and which don't
+  console.log('Protocols with tokens:', 
+    Array.from(protocolsWithTokens.entries())
+      .filter(([, hasTokens]) => hasTokens)
+      .map(([id]) => id)
+      .join(', ')
+  );
+  
+  console.log('Protocols without tokens:', 
+    Array.from(protocolsWithTokens.entries())
+      .filter(([, hasTokens]) => !hasTokens)
+      .map(([id]) => id)
+      .join(', ')
+  );
+  
+  // Always return all the required protocols, even if they don't have tokens
   return protocols;
 }
 
