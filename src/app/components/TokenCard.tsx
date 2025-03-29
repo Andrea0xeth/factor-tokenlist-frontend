@@ -13,13 +13,13 @@ import { useAppContext } from '../context/AppContext';
 // Map of building blocks with their readable names
 const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
   [BuildingBlock.BORROW]: 'Borrow',
-  [BuildingBlock.CDP]: 'CDP',
   [BuildingBlock.DEPOSIT]: 'Deposit',
-  [BuildingBlock.GRANTREWARDS]: 'Grant Rewards',
   [BuildingBlock.STAKE]: 'Stake',
-  [BuildingBlock.TRANSFER]: 'Transfer',
   [BuildingBlock.WITHDRAW]: 'Withdraw',
-  [BuildingBlock.ZAP]: 'Zap',
+  [BuildingBlock.LEND]: 'Lend',
+  [BuildingBlock.PROVIDE_LIQUIDITY]: 'Provide Liquidity',
+  [BuildingBlock.REMOVE_LIQUIDITY]: 'Remove Liquidity',
+  [BuildingBlock.REPAY]: 'Repay',
 };
 
 interface TokenCardProps {
