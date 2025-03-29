@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TokenInfo } from '@factordao/tokenlist';
+import { Token } from '../types/index';
 import TokenImage from './TokenImage';
 import { getProtocolLabel } from '../lib/tokenlist';
 import { BuildingBlock } from '@factordao/tokenlist';
@@ -23,9 +23,9 @@ const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
 };
 
 interface TokenCardProps {
-  token: TokenInfo;
+  token: Token;
   isSelected?: boolean;
-  onClick?: (token: TokenInfo) => void;
+  onClick?: (token: Token) => void;
 }
 
 /**
@@ -43,8 +43,8 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   // Extract token details
   const symbol = token.symbol || '';
   const name = token.name || '';
-  const protocols = token.extensions?.protocols || [];
-  const buildingBlocks = token.extensions?.buildingBlocks || [];
+  const protocols = token.extensions?.protocols || token.protocols || [];
+  const buildingBlocks = token.extensions?.buildingBlocks || token.buildingBlocks || [];
   
   // Get the correct explorer URL for the selected chain
   const explorerLink = getExplorerUrl(selectedChain, token.address);
@@ -72,7 +72,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
         <div className="flex items-center mb-3">
           <TokenImage
             src={token.logoURI}
-            symbol={token.symbol}
+            alt={token.symbol}
             address={token.address}
             size={32}
             className="mr-3"
@@ -102,7 +102,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               Address
             </span>
             <a 
-              href={`https://etherscan.io/token/${token.address}`}
+              href={getExplorerUrl(selectedChain, token.address)}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"
