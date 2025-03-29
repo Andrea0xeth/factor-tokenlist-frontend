@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect } from 'react';
-import { Token, Protocol } from '../types';
+import { Token, Protocol } from '../types/index';
 import { ChainId } from '@factordao/tokenlist';
 import { getAllTokens, getAllProtocols, SUPPORTED_CHAIN_IDS } from '../lib/tokenlist';
 import { BuildingBlock } from '@factordao/tokenlist';
