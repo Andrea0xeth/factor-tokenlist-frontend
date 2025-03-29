@@ -180,7 +180,8 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
   if (methodNames.includes('getTokensByProtocol')) {
     try {
       // Try to import the Protocols enum from the package
-      import { Protocols } from '@factordao/tokenlist';
+      // Cannot use static import inside a function - use dynamic import instead
+      const { Protocols } = await import('@factordao/tokenlist');
       
       // Get all protocol values from the enum
       const protocolValues = Object.values(Protocols).filter(value => typeof value === 'string');
