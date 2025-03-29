@@ -295,9 +295,32 @@ function getChainName(chainId: number): string {
 export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): Promise<Protocol[]> {
   console.log(`Getting protocols for chain ${chainId}...`);
   
+  // Define complete protocol lists for each chain
+  const chainProtocols: Record<number, string[]> = {
+    // Arbitrum protocols
+    [ChainId.ARBITRUM_ONE]: [
+      'aave', 'compound', 'pendle', 'silo', 'morpho', 'pro-vaults',
+      'gmx', 'camelot', 'uniswap', 'balancer', 'mux', 'gns',
+      'openocean', 'penpie', 'pirex', 'umami', 'vlp'
+    ],
+    // Optimism protocols
+    [ChainId.OPTIMISM]: [
+      'aave', 'compound', 'pendle', 'silo', 'morpho',
+      'uniswap', 'velodrome', 'openocean'
+    ],
+    // Base protocols
+    [ChainId.BASE]: [
+      'aave', 'compound', 'pendle', 'silo', 'morpho',
+      'aerodrome', 'openocean', 'uniswap'
+    ]
+  };
+  
   try {
     // Get the tokenlist instance for this chain
     const tokenlist = await getTokenlistInstance(chainId);
+    
+    // Create a set to track protocols we've added
+    const addedProtocolIds = new Set<string>();
     
     // Get all protocol IDs from the Protocols enum
     const protocolIds = Object.values(Protocols).filter(p => typeof p === 'string');
@@ -305,7 +328,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
     // Create protocol objects for this chain
     const protocols: Protocol[] = [];
     
-    // Check each protocol to see if it has tokens on this chain
+    // First, check each protocol defined in the tokenlist Protocols enum
     for (const protocolId of protocolIds) {
       try {
         // Try to get tokens for this protocol on this chain
@@ -316,13 +339,17 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
           
           // If there are tokens, this protocol is supported on this chain
           if (protocolTokens && protocolTokens.length > 0) {
-            protocols.push({
-              id: protocolId.toLowerCase(),
-              name: getProtocolLabel(protocolId),
-              logoURI: `/icons/protocols/${protocolId.toLowerCase()}.png`,
-              chainId: chainId
-            });
-            console.log(`Added protocol ${protocolId} with ${protocolTokens.length} tokens for chain ${chainId}`);
+            const id = protocolId.toLowerCase();
+            if (!addedProtocolIds.has(id)) {
+              protocols.push({
+                id: id,
+                name: getProtocolLabel(protocolId),
+                logoURI: `/icons/protocols/${id}.png`,
+                chainId: chainId
+              });
+              addedProtocolIds.add(id);
+              console.log(`Added protocol ${protocolId} with ${protocolTokens.length} tokens for chain ${chainId}`);
+            }
           }
         }
       } catch (error) {
@@ -331,26 +358,56 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
       }
     }
     
-    // Add specific protocol checks based on specialized methods
+    // Check for protocols with specific methods
+    const specificMethodProtocols = [
+      { id: 'aave', methodName: 'getAllAaveTokens' },
+      { id: 'compound', methodName: 'getAllCompoundTokens' },
+      { id: 'pendle', methodName: 'getAllPendleTokens' },
+      { id: 'silo', methodName: 'getAllSiloTokens' },
+      { id: 'morpho', methodName: 'getAllMorphoTokens' }
+    ];
+    
+    for (const protocol of specificMethodProtocols) {
+      if (!addedProtocolIds.has(protocol.id) && typeof (tokenlist as any)[protocol.methodName] === 'function') {
+        try {
+          const tokens = await (tokenlist as any)[protocol.methodName]();
+          if (tokens && tokens.length > 0) {
+            protocols.push({
+              id: protocol.id,
+              name: getProtocolLabel(protocol.id),
+              logoURI: `/icons/protocols/${protocol.id}.png`,
+              chainId: chainId
+            });
+            addedProtocolIds.add(protocol.id);
+            console.log(`Added protocol ${protocol.id} using ${protocol.methodName} with ${tokens.length} tokens for chain ${chainId}`);
+          }
+        } catch (error) {
+          console.debug(`Method ${protocol.methodName} not available:`, error);
+        }
+      }
+    }
     
     // Check for SILO tokens using the specialized method
-    try {
-      const siloTokens = await tokenlist.getAllSiloTokens();
-      if (siloTokens && siloTokens.length > 0 && !protocols.some(p => p.id.toLowerCase() === 'silo')) {
-        protocols.push({
-          id: 'silo',
-          name: 'Silo',
-          logoURI: '/icons/protocols/silo.png',
-          chainId: chainId
-        });
-        console.log(`Added SILO protocol with ${siloTokens.length} markets for chain ${chainId}`);
+    if (!addedProtocolIds.has('silo')) {
+      try {
+        const siloTokens = await tokenlist.getAllSiloTokens();
+        if (siloTokens && siloTokens.length > 0) {
+          protocols.push({
+            id: 'silo',
+            name: 'Silo',
+            logoURI: '/icons/protocols/silo.png',
+            chainId: chainId
+          });
+          addedProtocolIds.add('silo');
+          console.log(`Added SILO protocol with ${siloTokens.length} markets for chain ${chainId}`);
+        }
+      } catch (error) {
+        console.debug(`SILO tokens not available for chain ${chainId}:`, error);
       }
-    } catch (error) {
-      console.debug(`SILO tokens not available for chain ${chainId}:`, error);
     }
     
     // Check for Pro Vaults on Arbitrum
-    if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+    if (!addedProtocolIds.has('pro-vaults') && chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
       try {
         const proVaultTokens = await tokenlist.getAllProVaultsTokens();
         if (proVaultTokens && proVaultTokens.length > 0) {
@@ -360,6 +417,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
             logoURI: `/icons/protocols/default.svg`,
             chainId: chainId
           });
+          addedProtocolIds.add('pro-vaults');
           console.log(`Added Pro-Vaults protocol with ${proVaultTokens.length} vaults for chain ${chainId}`);
         }
       } catch (error) {
@@ -367,74 +425,38 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
       }
     }
     
-    console.log(`Retrieved ${protocols.length} protocols for chain ${chainId}`);
-    
-    if (protocols.length > 0) {
-      return protocols;
-    }
-    
-    console.warn(`No protocols found for chain ${chainId} from the NPM package, falling back to default methods`);
-    
-    // Fall back to checking for specific protocol methods if the above approach didn't work
-    const protocolChecks = [
-      { id: 'aave', methodName: 'getAllAaveTokens' },
-      { id: 'compound', methodName: 'getAllCompoundTokens' },
-      { id: 'pendle', methodName: 'getAllPendleTokens' },
-      { id: 'silo', methodName: 'getAllSiloTokens' },
-      { id: 'morpho', methodName: 'getAllMorphoTokens' }
-    ];
-    
-    const fallbackProtocols: Protocol[] = [];
-    
-    for (const check of protocolChecks) {
-      if (typeof (tokenlist as any)[check.methodName] === 'function') {
-        try {
-          const tokens = await (tokenlist as any)[check.methodName]();
-          if (tokens && tokens.length > 0) {
-            fallbackProtocols.push({
-              id: check.id,
-              name: getProtocolLabel(check.id),
-              logoURI: `/icons/protocols/${check.id}.png`,
-              chainId: chainId
-            });
-          }
-        } catch (error) {
-          console.debug(`Method ${check.methodName} not available:`, error);
-        }
+    // Add the remaining protocols for this chain from the predefined list
+    const predefinedProtocols = chainProtocols[chainId] || [];
+    for (const protocolId of predefinedProtocols) {
+      if (!addedProtocolIds.has(protocolId)) {
+        protocols.push({
+          id: protocolId,
+          name: getProtocolLabel(protocolId),
+          logoURI: `/icons/protocols/${protocolId}.png`,
+          chainId: chainId
+        });
+        addedProtocolIds.add(protocolId);
+        console.log(`Added predefined protocol ${protocolId} for chain ${chainId}`);
       }
     }
     
-    // Add chain-specific protocols
-    if (chainId === ChainId.ARBITRUM_ONE) {
-      fallbackProtocols.push(
-        { id: 'camelot', name: 'Camelot', logoURI: '/icons/protocols/camelot.png', chainId },
-        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId }
-      );
-    } else if (chainId === ChainId.BASE) {
-      fallbackProtocols.push(
-        { id: 'aerodrome', name: 'Aerodrome', logoURI: '/icons/protocols/default.svg', chainId },
-        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId }
-      );
-    } else if (chainId === ChainId.OPTIMISM) {
-      fallbackProtocols.push(
-        { id: 'velodrome', name: 'Velodrome', logoURI: '/icons/protocols/default.svg', chainId },
-        { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId }
-      );
-    }
+    console.log(`Retrieved ${protocols.length} protocols for chain ${chainId}`);
     
-    if (fallbackProtocols.length > 0) {
-      return fallbackProtocols;
-    }
+    return protocols;
   } catch (error) {
     console.error(`Error getting protocols for chain ${chainId}:`, error);
+    
+    // Return the complete list of protocols for this chain as fallback
+    const fallbackProtocols = (chainProtocols[chainId] || []).map(id => ({
+      id,
+      name: getProtocolLabel(id),
+      logoURI: `/icons/protocols/${id}.png`,
+      chainId
+    }));
+    
+    console.log(`Returning ${fallbackProtocols.length} fallback protocols for chain ${chainId}`);
+    return fallbackProtocols;
   }
-  
-  // Return a minimal set of protocols if everything else fails
-  return [
-    { id: 'uniswap', name: 'Uniswap', logoURI: '/icons/protocols/uniswap.png', chainId },
-    { id: 'aave', name: 'Aave', logoURI: '/icons/protocols/aave.png', chainId },
-    { id: 'compound', name: 'Compound', logoURI: '/icons/protocols/compound.png', chainId },
-  ];
 }
 
 // Function to get available actions for a token on a specific protocol
