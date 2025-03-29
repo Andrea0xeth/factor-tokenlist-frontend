@@ -343,6 +343,11 @@ function getChainName(chainId: number): string {
   }
 }
 
+// Function to get a protocol logo URI with proper fallbacks
+function getProtocolLogoURI(protocolId: string): string {
+  return `/icons/protocols/${protocolId.toLowerCase()}.png`;
+}
+
 // Function to get all available protocols
 export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): Promise<Protocol[]> {
   console.log(`Getting protocols for chain ${chainId}...`);
@@ -378,7 +383,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
         protocols.push({
           id: protocolId,
           name: getProtocolLabel(protocolId),
-          logoURI: `/icons/protocols/${protocolId}.png`,
+          logoURI: getProtocolLogoURI(protocolId),
           chainId
         });
         addedProtocolIds.add(protocolId);
@@ -408,7 +413,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
         protocols.push({
           id: 'pro-vaults',
           name: 'Pro Vaults',
-          logoURI: `/icons/protocols/default.svg`,
+          logoURI: getProtocolLogoURI('pro-vaults'),
           chainId
         });
         addedProtocolIds.add('pro-vaults');
@@ -445,7 +450,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
             protocols.push({
               id: protocolId,
               name: getProtocolLabel(protocolId),
-              logoURI: `/icons/protocols/${protocolId}.png`,
+              logoURI: getProtocolLogoURI(protocolId),
               chainId
             });
             addedProtocolIds.add(protocolId);
@@ -489,7 +494,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
             protocols.push({
               id,
               name: getProtocolLabel(id),
-              logoURI: `/icons/protocols/${id}.png`,
+              logoURI: getProtocolLogoURI(id),
               chainId
             });
             addedProtocolIds.add(id);
@@ -535,7 +540,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
         protocols.push({
           id,
           name: getProtocolLabel(id),
-          logoURI: `/icons/protocols/${id}.png`,
+          logoURI: getProtocolLogoURI(id),
           chainId
         });
         addedProtocolIds.add(id);
@@ -605,4 +610,12 @@ export function getProtocolLabel(protocolId: string): string {
   return protocolId
     .replace(/[-_]/g, ' ')
     .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
+
+// Function to get protocols filtered by chain
+export function filterProtocolsByChain(protocols: Protocol[], chainId: number): Protocol[] {
+  console.log(`Filtering ${protocols.length} protocols for chain ${chainId}`);
+  const filtered = protocols.filter(p => !p.chainId || p.chainId === chainId);
+  console.log(`Filtered protocols for chain ${chainId}:`, filtered.map(p => p.id).join(', '));
+  return filtered;
 }

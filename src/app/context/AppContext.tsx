@@ -218,12 +218,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
 
       // Protocol filter
-      const matchesProtocol = !selectedProtocolId || 
-        (token.protocols && token.protocols.includes(selectedProtocolId));
+      const matchesProtocol = !selectedProtocolId || (
+        (token.protocols && token.protocols.includes(selectedProtocolId)) || 
+        (token.extensions?.protocols && token.extensions.protocols.includes(selectedProtocolId))
+      );
 
       // Building block filter  
-      const matchesBuildingBlock = !selectedBuildingBlock || 
-        (token.buildingBlocks && token.buildingBlocks.includes(selectedBuildingBlock));
+      const matchesBuildingBlock = !selectedBuildingBlock || (
+        (token.buildingBlocks && token.buildingBlocks.includes(selectedBuildingBlock)) ||
+        (token.extensions?.buildingBlocks && token.extensions.buildingBlocks.includes(selectedBuildingBlock))
+      );
 
       return matchesSearch && matchesProtocol && matchesBuildingBlock;
     });

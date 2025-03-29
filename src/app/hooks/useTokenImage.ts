@@ -67,8 +67,22 @@ export default function useTokenImage({
     return colors[index];
   }, [cleanSymbol]);
 
+  // Check if the source is a protocol image
+  const isProtocolImage = useMemo(() => {
+    return src?.includes('/icons/protocols/');
+  }, [src]);
+
   // Array of image sources to try in sequence
   const fallbackSources = useMemo(() => {
+    // If this is a protocol image, handle differently with a fallback to default.svg
+    if (isProtocolImage) {
+      return [
+        src, // Original protocol image source
+        '/icons/protocols/default.svg', // Default protocol icon
+      ];
+    }
+
+    // Standard token image fallback chain
     const sources = [
       src, // Original source
       `/icons/tokens/${cleanSymbol}.png`, // Local image
@@ -81,11 +95,11 @@ export default function useTokenImage({
     ].filter(Boolean) as string[];
 
     return sources;
-  }, [src, cleanSymbol, tokenAddress, color]);
+  }, [src, cleanSymbol, tokenAddress, color, isProtocolImage]);
 
   // Current image source
   const currentSrc = useMemo(() => {
-    return fallbackSources[Math.min(fallbackIndex, fallbackSources.length - 1)];
+    return fallbackSources[Math.min(fallbackIndex, fallbackSources.length - 1)] || '';
   }, [fallbackSources, fallbackIndex]);
 
   // Function to handle error and move to the next source
