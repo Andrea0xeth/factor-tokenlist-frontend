@@ -11,7 +11,7 @@ import { getExplorerUrl } from '../lib/chains';
 import { useAppContext } from '../context/AppContext';
 
 // Map of building blocks with their readable names
-const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
+const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
   [BuildingBlock.BORROW]: 'Borrow',
   [BuildingBlock.CDP]: 'CDP',
   [BuildingBlock.DEPOSIT]: 'Deposit',
