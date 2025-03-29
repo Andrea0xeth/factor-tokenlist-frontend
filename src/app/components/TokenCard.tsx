@@ -43,8 +43,8 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   // Extract token details
   const symbol = token.symbol || '';
   const name = token.name || '';
-  const protocols = token.extensions?.protocols || token.protocols || [];
-  const buildingBlocks = token.extensions?.buildingBlocks || token.buildingBlocks || [];
+  const protocols = token.extensions?.protocols || [];
+  const buildingBlocks = token.extensions?.buildingBlocks || [];
   
   // Get the correct explorer URL for the selected chain
   const explorerLink = getExplorerUrl(selectedChain, token.address);
