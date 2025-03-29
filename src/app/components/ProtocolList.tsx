@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Token, Protocol, Action } from '../types';
+import { Token, Protocol, Action } from '../types/index';
 import TokenImage from './TokenImage';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { getActionsByTokenAndProtocol } from '../lib/tokenlist';
