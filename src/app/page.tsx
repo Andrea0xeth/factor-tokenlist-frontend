@@ -91,7 +91,7 @@ export default function Home() {
                 Protocol
               </label>
               <ProtocolFilter 
-                protocols={protocols.filter(p => !p.chainId || p.chainId === selectedChain)} 
+                protocols={protocols.filter(p => p.chainId === selectedChain)} 
                 selected={selectedProtocolId}
                 onChange={setSelectedProtocol}
               />

@@ -29,6 +29,8 @@ export const buildingBlockToAction: Record<string, string> = {
 
 // Cache of FactorTokenlist instances to avoid recreating them each time
 const tokenlistInstances: Record<number, FactorTokenlist> = {};
+// Track which instances have already initialized Pro Vaults
+const initializedProVaults: Record<number, boolean> = {};
 
 // Function to get a FactorTokenlist instance for a given chain
 async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
@@ -38,18 +40,20 @@ async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
 
   console.log(`Initializing FactorTokenlist for chain ${chainId}...`);
   const instance = new FactorTokenlist(chainId);
+  tokenlistInstances[chainId] = instance;
   
-  // Initialize Pro Vaults for Arbitrum if that's the selected chain
-  if (chainId === ChainId.ARBITRUM_ONE) {
+  // Pro Vaults are only available on Arbitrum
+  if (chainId === ChainId.ARBITRUM_ONE && !initializedProVaults[chainId]) {
     try {
       console.log('Initializing Pro Vaults for Arbitrum...');
       await instance.initializeProVaultsTokens();
+      initializedProVaults[chainId] = true;
+      console.log('Pro Vaults initialization completed successfully');
     } catch (error) {
       console.warn('Failed to initialize Pro Vaults:', error);
     }
   }
   
-  tokenlistInstances[chainId] = instance;
   console.log(`FactorTokenlist initialized successfully for chain ${chainId}`);
   return instance;
 }
@@ -61,16 +65,141 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   // Get the tokenlist instance for this chain
   const tokenlist = await getTokenlistInstance(chainId);
   
-  // Retrieve tokens from the tokenlist
-  console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
-  const tokens = await tokenlist.getAllGeneralTokens();
+  // Create an array to collect all tokens
+  let allTokens: any[] = [];
   
-  console.log(`Received ${tokens.length} tokens for chain ${chainId}`);
+  try {
+    // Get general tokens
+    console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
+    const generalTokens = await tokenlist.getAllGeneralTokens();
+    allTokens = [...generalTokens];
+    console.log(`Received ${generalTokens.length} general tokens for chain ${chainId}`);
+    
+    // Try to get specialized tokens based on protocols
+    
+    // 1. SILO tokens (available on multiple chains)
+    try {
+      const siloTokens = await tokenlist.getAllSiloTokens();
+      if (siloTokens && siloTokens.length > 0) {
+        // Process SILO tokens which have a special structure
+        const processedSiloTokens = siloTokens.flatMap(market => {
+          // Each market has multiple assets
+          return market.asset.map(asset => {
+            // For each asset, add both collateral and debt tokens
+            return [
+              {
+                address: asset.collateralToken.address,
+                name: asset.collateralToken.name,
+                symbol: asset.collateralToken.symbol,
+                decimals: asset.collateralToken.decimals,
+                chainId: chainId,
+                protocols: [Protocols.SILO],
+                buildingBlocks: [BuildingBlock.LEND, BuildingBlock.DEPOSIT],
+                extensions: {
+                  protocols: [Protocols.SILO],
+                  buildingBlocks: [BuildingBlock.LEND, BuildingBlock.DEPOSIT],
+                  marketInfo: {
+                    marketName: market.marketName,
+                    marketAddress: market.marketAddress,
+                    assetType: 'collateral'
+                  }
+                }
+              },
+              {
+                address: asset.debtToken.address,
+                name: asset.debtToken.name,
+                symbol: asset.debtToken.symbol,
+                decimals: asset.debtToken.decimals,
+                chainId: chainId,
+                protocols: [Protocols.SILO],
+                buildingBlocks: [BuildingBlock.BORROW],
+                extensions: {
+                  protocols: [Protocols.SILO],
+                  buildingBlocks: [BuildingBlock.BORROW],
+                  marketInfo: {
+                    marketName: market.marketName,
+                    marketAddress: market.marketAddress,
+                    assetType: 'debt'
+                  }
+                }
+              }
+            ];
+          });
+        }).flat();
+        
+        allTokens = [...allTokens, ...processedSiloTokens];
+        console.log(`Added ${processedSiloTokens.length} SILO tokens for chain ${chainId}`);
+      }
+    } catch (error) {
+      console.warn(`Failed to load SILO tokens for chain ${chainId}:`, error);
+    }
+    
+    // 2. Pro Vaults (only on Arbitrum)
+    if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+      try {
+        const proVaultTokens = await tokenlist.getAllProVaultsTokens();
+        if (proVaultTokens && proVaultTokens.length > 0) {
+          // Process Pro Vault tokens
+          const processedProVaultTokens = proVaultTokens.map(vault => ({
+            address: vault.vaultAddress,
+            name: vault.name,
+            symbol: vault.symbol,
+            decimals: vault.decimals || 18,
+            chainId: chainId,
+            protocols: ['pro-vaults'],
+            buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+            logoURI: vault.logoURI,
+            extensions: {
+              protocols: ['pro-vaults'],
+              buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+              vaultInfo: {
+                vaultAddress: vault.vaultAddress,
+                strategyAddress: vault.strategyAddress,
+                depositToken: vault.depositToken,
+                apy: vault.apy,
+                deprecated: vault.deprecated
+              }
+            }
+          }));
+          
+          allTokens = [...allTokens, ...processedProVaultTokens];
+          console.log(`Added ${processedProVaultTokens.length} Pro Vault tokens for chain ${chainId}`);
+        }
+      } catch (error) {
+        console.warn('Failed to load Pro Vault tokens:', error);
+      }
+    }
+    
+    // Add more specialized tokens here if needed
+    
+  } catch (error) {
+    console.error(`Error fetching tokens for chain ${chainId}:`, error);
+  }
   
   // Convert tokens to the format required by the frontend
-  const convertedTokens = tokens.map((token: any) => convertToken(token, chainId));
+  const convertedTokens = allTokens.map((token: any) => convertToken(token, chainId));
   
-  return convertedTokens;
+  // Remove duplicates by address (keeping the most detailed version)
+  const uniqueTokens = removeDuplicateTokens(convertedTokens);
+  
+  console.log(`Total of ${uniqueTokens.length} unique tokens for chain ${chainId}`);
+  return uniqueTokens;
+}
+
+// Function to remove duplicate tokens, keeping the most informative one
+function removeDuplicateTokens(tokens: Token[]): Token[] {
+  const addressMap = new Map<string, Token>();
+  
+  for (const token of tokens) {
+    const key = `${token.chainId}-${token.address.toLowerCase()}`;
+    if (!addressMap.has(key) || 
+        (token.extensions && Object.keys(token.extensions).length > 0) ||
+        (token.buildingBlocks && token.buildingBlocks.length > 0)) {
+      addressMap.set(key, token);
+    }
+  }
+  
+  return Array.from(addressMap.values());
 }
 
 // Function to convert from tokenlist Token to frontend Token format
@@ -165,11 +294,28 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
       }
     }
     
-    // Add specific protocols based on chain
-    if (chainId === ChainId.ARBITRUM_ONE) {
-      // Check for Pro Vaults on Arbitrum
+    // Add specific protocol checks based on specialized methods
+    
+    // Check for SILO tokens using the specialized method
+    try {
+      const siloTokens = await tokenlist.getAllSiloTokens();
+      if (siloTokens && siloTokens.length > 0 && !protocols.some(p => p.id.toLowerCase() === 'silo')) {
+        protocols.push({
+          id: 'silo',
+          name: 'Silo',
+          logoURI: '/icons/protocols/silo.png',
+          chainId: chainId
+        });
+        console.log(`Added SILO protocol with ${siloTokens.length} markets for chain ${chainId}`);
+      }
+    } catch (error) {
+      console.debug(`SILO tokens not available for chain ${chainId}:`, error);
+    }
+    
+    // Check for Pro Vaults on Arbitrum
+    if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
       try {
-        const proVaultTokens = await (tokenlist as any).getAllProVaultsTokens();
+        const proVaultTokens = await tokenlist.getAllProVaultsTokens();
         if (proVaultTokens && proVaultTokens.length > 0) {
           protocols.push({
             id: 'pro-vaults',
@@ -177,6 +323,7 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
             logoURI: `/icons/protocols/default.svg`,
             chainId: chainId
           });
+          console.log(`Added Pro-Vaults protocol with ${proVaultTokens.length} vaults for chain ${chainId}`);
         }
       } catch (error) {
         console.debug('Pro Vaults not available:', error);
@@ -263,6 +410,96 @@ export async function getActionsByTokenAndProtocol(
   
   const tokenlist = await getTokenlistInstance(chainId);
   
+  // Special handling for SILO protocol
+  if (protocolId.toLowerCase() === 'silo') {
+    try {
+      const siloTokens = await tokenlist.getAllSiloTokens();
+      
+      // Find which SILO market this token belongs to
+      for (const market of siloTokens) {
+        for (const asset of market.asset) {
+          // Check if this token is a collateral token
+          if (asset.collateralToken.address.toLowerCase() === tokenAddress.toLowerCase()) {
+            return [
+              {
+                id: `lend-silo-${market.marketAddress}`,
+                name: 'Supply',
+                description: `Supply ${asset.collateralToken.symbol} to Silo market ${market.marketName}`,
+                buildingBlock: BuildingBlock.LEND,
+                protocolId: protocolId,
+                tokenAddress: tokenAddress
+              },
+              {
+                id: `deposit-silo-${market.marketAddress}`,
+                name: 'Deposit',
+                description: `Deposit ${asset.collateralToken.symbol} as collateral in Silo market ${market.marketName}`,
+                buildingBlock: BuildingBlock.DEPOSIT,
+                protocolId: protocolId,
+                tokenAddress: tokenAddress
+              }
+            ];
+          }
+          
+          // Check if this token is a debt token
+          if (asset.debtToken.address.toLowerCase() === tokenAddress.toLowerCase()) {
+            return [
+              {
+                id: `borrow-silo-${market.marketAddress}`,
+                name: 'Borrow',
+                description: `Borrow ${asset.debtToken.symbol} from Silo market ${market.marketName}`,
+                buildingBlock: BuildingBlock.BORROW,
+                protocolId: protocolId,
+                tokenAddress: tokenAddress
+              }
+            ];
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Error getting SILO actions for token ${tokenAddress}:`, error);
+    }
+  }
+  
+  // Special handling for Pro Vaults (Arbitrum only)
+  if (protocolId.toLowerCase() === 'pro-vaults' && chainId === ChainId.ARBITRUM_ONE) {
+    try {
+      if (initializedProVaults[chainId]) {
+        const proVaultTokens = await tokenlist.getAllProVaultsTokens();
+        
+        // Find the vault this token belongs to
+        const vault = proVaultTokens.find(v => 
+          v.vaultAddress.toLowerCase() === tokenAddress.toLowerCase()
+        );
+        
+        if (vault) {
+          const actions = [
+            {
+              id: `deposit-provault-${vault.vaultAddress}`,
+              name: 'Deposit',
+              description: `Deposit ${vault.depositToken.symbol} into ${vault.name} vault`,
+              buildingBlock: BuildingBlock.DEPOSIT,
+              protocolId: protocolId,
+              tokenAddress: tokenAddress,
+              apy: vault.apy
+            },
+            {
+              id: `withdraw-provault-${vault.vaultAddress}`,
+              name: 'Withdraw',
+              description: `Withdraw ${vault.depositToken.symbol} from ${vault.name} vault`,
+              buildingBlock: BuildingBlock.WITHDRAW,
+              protocolId: protocolId,
+              tokenAddress: tokenAddress
+            }
+          ];
+          
+          return actions;
+        }
+      }
+    } catch (error) {
+      console.warn(`Error getting Pro Vault actions for token ${tokenAddress}:`, error);
+    }
+  }
+  
   // First try to get the building blocks for this token
   try {
     // Try to get the token from the tokenlist
@@ -302,6 +539,11 @@ export const SUPPORTED_CHAIN_IDS: number[] = [
 
 // Function to get a friendly protocol label
 export function getProtocolLabel(protocolId: string): string {
+  // Special cases
+  if (protocolId.toLowerCase() === 'pro-vaults') {
+    return 'Pro Vaults';
+  }
+  
   // Return a more user-friendly protocol name
   // This replaces hyphens and underscores with spaces and capitalizes each word
   return protocolId
