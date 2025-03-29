@@ -5,6 +5,10 @@ import { TokenInfo } from '@factordao/tokenlist';
 import TokenImage from './TokenImage';
 import { getProtocolLabel } from '../lib/tokenlist';
 import { BuildingBlock } from '@factordao/tokenlist';
+import Link from 'next/link';
+import Image from 'next/image';
+import { getExplorerUrl } from '../lib/chains';
+import { useAppContext } from '../context/AppContext';
 
 // Map of building blocks with their readable names
 const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
@@ -29,6 +33,8 @@ interface TokenCardProps {
  */
 export default function TokenCard({ token, isSelected = false, onClick }: TokenCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { state } = useAppContext();
+  const { selectedChain } = state;
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
@@ -39,6 +45,9 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   const name = token.name || '';
   const protocols = token.extensions?.protocols || [];
   const buildingBlocks = token.extensions?.buildingBlocks || [];
+  
+  // Get the correct explorer URL for the selected chain
+  const explorerLink = getExplorerUrl(selectedChain, token.address);
   
   // Handle click event
   const handleClick = () => {
@@ -159,6 +168,18 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               ))}
             </div>
           </div>
+        )}
+
+        {/* Block Explorer Link */}
+        {explorerLink && (
+          <Link 
+            href={explorerLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-2"
+          >
+            View on Block Explorer
+          </Link>
         )}
       </div>
     </div>

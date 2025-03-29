@@ -198,53 +198,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'RESET_FILTERS' });
   }, []);
 
-  // Effect to calculate filtered tokens
+  // Filter tokens based on search text and other filters
   useEffect(() => {
-    if (!state.tokens) {
-      setFilteredTokens([]);
-      return;
-    }
-    
-    let result = [...state.tokens];
     const { searchText, selectedProtocolId, selectedBuildingBlock } = state.filters;
-    
-    // Filter by protocol
-    if (selectedProtocolId) {
-      result = result.filter(token => {
-        if (!token.protocols) return false;
-        
-        if (Array.isArray(token.protocols)) {
-          return token.protocols.some(p => {
-            if (typeof p === 'string') {
-              return p.toLowerCase() === selectedProtocolId.toLowerCase();
-            } else if (p && typeof p === 'object' && 'id' in p) {
-              return (p as any).id.toLowerCase() === selectedProtocolId.toLowerCase();
-            }
-            return String(p).toLowerCase() === selectedProtocolId.toLowerCase();
-          });
-        }
+    const searchLower = searchText.toLowerCase().trim();
+
+    // Defensive filtering with null checks
+    const filtered = state.tokens.filter(token => {
+      // Skip tokens with undefined properties
+      if (!token || !token.name || !token.symbol || !token.address) {
         return false;
-      });
-    }
-    
-    // Filter by building block
-    if (selectedBuildingBlock) {
-      result = result.filter(token => 
-        token.buildingBlocks?.includes(selectedBuildingBlock)
-      );
-    }
-    
-    // Filter by text
-    if (searchText.trim() !== '') {
-      const searchLower = searchText.toLowerCase().trim();
-      result = result.filter(token => 
+      }
+
+      // Search text filter
+      const matchesSearch = !searchText || (
         token.name.toLowerCase().includes(searchLower) || 
         token.symbol.toLowerCase().includes(searchLower) ||
         token.address.toLowerCase().includes(searchLower)
       );
-    }
-    
-    setFilteredTokens(result);
+
+      // Protocol filter
+      const matchesProtocol = !selectedProtocolId || 
+        (token.protocols && token.protocols.includes(selectedProtocolId));
+
+      // Building block filter  
+      const matchesBuildingBlock = !selectedBuildingBlock || 
+        (token.buildingBlocks && token.buildingBlocks.includes(selectedBuildingBlock));
+
+      return matchesSearch && matchesProtocol && matchesBuildingBlock;
+    });
+
+    setFilteredTokens(filtered);
   }, [state.tokens, state.filters]);
 
   // Load initial data
