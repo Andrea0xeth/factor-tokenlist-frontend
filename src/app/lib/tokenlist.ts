@@ -54,7 +54,7 @@ async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
 
 // Function to get all available tokens
 export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Promise<Token[]> {
-  console.log(`Requesting tokens for chain: ${chainId}...`);
+  console.log(`🔍 Requesting tokens for chain: ${chainId}...`);
   
   // Get the tokenlist instance for this chain
   const tokenlist = await getTokenlistInstance(chainId);
@@ -63,15 +63,46 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   let allTokens: any[] = [];
   
   // Retrieve general tokens from the tokenlist
-  console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
+  console.log(`📋 Calling getAllGeneralTokens for chain ${chainId}...`);
   const generalTokens = await tokenlist.getAllGeneralTokens();
   allTokens = [...generalTokens];
-  console.log(`Received ${generalTokens.length} general tokens for chain ${chainId}`);
+  console.log(`📊 Received ${generalTokens.length} general tokens for chain ${chainId}`);
+
+  // Debug: Log method names to see available protocol-specific methods
+  const methodNames = Object.getOwnPropertyNames(Object.getPrototypeOf(tokenlist))
+    .filter(name => typeof (tokenlist as any)[name] === 'function');
+  console.log('🕵️ Available methods:', methodNames);
+
+  // Specific protocol token retrieval methods
+  const protocolMethods = [
+    { method: 'getAllPendleTokens', name: 'PENDLE' },
+    { method: 'getAllSiloTokens', name: 'SILO' }
+  ];
+
+  for (const { method, name } of protocolMethods) {
+    if (methodNames.includes(method)) {
+      try {
+        console.log(`🔬 Attempting to retrieve ${name} tokens using ${method}...`);
+        const tokens = await (tokenlist as any)[method]();
+        
+        if (tokens && tokens.length > 0) {
+          console.log(`✅ Found ${tokens.length} ${name} tokens`);
+          allTokens.push(...tokens);
+        } else {
+          console.log(`❌ No ${name} tokens found`);
+        }
+      } catch (error) {
+        console.warn(`❗ Error retrieving ${name} tokens:`, error);
+      }
+    } else {
+      console.log(`❓ Method ${method} not found for ${name} tokens`);
+    }
+  }
   
   // Get Pro Vaults for Arbitrum
   if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
     try {
-      console.log('Getting Pro Vault tokens...');
+      console.log('🏦 Getting Pro Vault tokens...');
       const proVaultTokens = await tokenlist.getAllProVaultsTokens();
       
       if (proVaultTokens && proVaultTokens.length > 0) {
@@ -99,17 +130,25 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
         }));
         
         allTokens = [...allTokens, ...processedProVaultTokens];
-        console.log(`Added ${processedProVaultTokens.length} Pro Vault tokens`);
+        console.log(`🏦 Added ${processedProVaultTokens.length} Pro Vault tokens`);
       } else {
-        console.log('No Pro Vault tokens found');
+        console.log('🏦 No Pro Vault tokens found');
       }
     } catch (error) {
-      console.warn('Failed to load Pro Vault tokens:', error);
+      console.warn('🚨 Failed to load Pro Vault tokens:', error);
     }
   }
   
   // Convert tokens to the format required by the frontend
-  return allTokens.map((token: any) => convertToken(token, chainId));
+  const processedTokens = allTokens.map((token: any) => convertToken(token, chainId));
+
+  // Debug: Log processed tokens
+  console.log(`🎉 Total processed tokens: ${processedTokens.length}`);
+  console.log('🔍 Processed token protocols:', 
+    [...new Set(processedTokens.flatMap(t => t.protocols))]
+  );
+
+  return processedTokens;
 }
 
 // Function to convert from tokenlist Token to frontend Token format
