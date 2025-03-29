@@ -86,8 +86,57 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     .filter(name => typeof (tokenlist as any)[name] === 'function');
   console.log('🕵️ Available methods:', methodNames);
 
+  // Define all protocol-specific methods that could be available
+  // List all possible protocol getter methods
+  const standardProtocolMethods = [
+    { method: 'getAllAaveTokens', protocolId: 'aave' },
+    { method: 'getAllCompoundTokens', protocolId: 'compound' },
+    { method: 'getAllMorphoTokens', protocolId: 'morpho' },
+    { method: 'getAllUniswapTokens', protocolId: 'uniswap' },
+    { method: 'getAllBalancerTokens', protocolId: 'balancer' },
+    { method: 'getAllCamelotTokens', protocolId: 'camelot' },
+    { method: 'getAllVelodromeTokens', protocolId: 'velodrome' },
+    { method: 'getAllAerodromeTokens', protocolId: 'aerodrome' },
+    { method: 'getAllOpenoceanTokens', protocolId: 'openocean' }
+  ];
+
+  // Process standard protocol methods
+  for (const { method, protocolId } of standardProtocolMethods) {
+    if (methodNames.includes(method)) {
+      try {
+        console.log(`📊 Calling ${method} for chain ${chainId}...`);
+        const protocolTokens = await (tokenlist as any)[method]();
+        
+        if (protocolTokens && protocolTokens.length > 0) {
+          // Convert tokens to our format with appropriate protocol tags
+          const processedTokens = protocolTokens.map((token: any) => {
+            const convertedToken = convertToken(token, chainId);
+            // Ensure the protocol is correctly tagged
+            return {
+              ...convertedToken,
+              protocols: [...(convertedToken.protocols || []), protocolId],
+              extensions: {
+                ...(convertedToken.extensions || {}),
+                protocols: [...(convertedToken.extensions?.protocols || []), protocolId]
+              }
+            };
+          });
+          
+          allTokens = [...allTokens, ...processedTokens];
+          console.log(`✅ Added ${processedTokens.length} ${protocolId.toUpperCase()} tokens`);
+        } else {
+          console.log(`⚠️ No tokens returned from ${method}`);
+        }
+      } catch (error) {
+        console.warn(`❌ Error calling ${method}:`, error);
+      }
+    } else {
+      console.log(`ℹ️ Method ${method} not available for ${protocolId}`);
+    }
+  }
+
   // Specific protocol token retrieval methods with enhanced handling
-  const protocolMethods = [
+  const complexProtocolMethods = [
     { 
       method: 'getAllPendleTokens', 
       name: 'PENDLE',
@@ -102,6 +151,8 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
               protocols: ['pendle', 'pt'],
               buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
               extensions: {
+                protocols: ['pendle', 'pt'],
+                buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
                 pendleTokenType: 'PT',
                 expiry: pendleToken.expiry
               }
@@ -115,6 +166,8 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
               protocols: ['pendle', 'yt'],
               buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
               extensions: {
+                protocols: ['pendle', 'yt'],
+                buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
                 pendleTokenType: 'YT',
                 expiry: pendleToken.expiry
               }
@@ -131,6 +184,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                 BuildingBlock.REMOVE_LIQUIDITY
               ],
               extensions: {
+                protocols: ['pendle', 'lp'],
+                buildingBlocks: [
+                  BuildingBlock.PROVIDE_LIQUIDITY, 
+                  BuildingBlock.REMOVE_LIQUIDITY
+                ],
                 pendleTokenType: 'LP',
                 expiry: pendleToken.expiry
               }
@@ -159,6 +217,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                   BuildingBlock.BORROW
                 ],
                 extensions: {
+                  protocols: ['silo', 'underlying'],
+                  buildingBlocks: [
+                    BuildingBlock.LEND, 
+                    BuildingBlock.BORROW
+                  ],
                   siloMarketName: siloMarket.marketName,
                   siloMarketAddress: siloMarket.marketAddress,
                   siloTokenType: 'UNDERLYING'
@@ -176,6 +239,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                   BuildingBlock.REPAY
                 ],
                 extensions: {
+                  protocols: ['silo', 'debt'],
+                  buildingBlocks: [
+                    BuildingBlock.BORROW, 
+                    BuildingBlock.REPAY
+                  ],
                   siloMarketName: siloMarket.marketName,
                   siloMarketAddress: siloMarket.marketAddress,
                   siloTokenType: 'DEBT'
@@ -193,6 +261,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                   BuildingBlock.WITHDRAW
                 ],
                 extensions: {
+                  protocols: ['silo', 'collateral'],
+                  buildingBlocks: [
+                    BuildingBlock.LEND, 
+                    BuildingBlock.WITHDRAW
+                  ],
                   siloMarketName: siloMarket.marketName,
                   siloMarketAddress: siloMarket.marketAddress,
                   siloTokenType: 'COLLATERAL'
@@ -210,6 +283,11 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
                   BuildingBlock.WITHDRAW
                 ],
                 extensions: {
+                  protocols: ['silo', 'collateral-only'],
+                  buildingBlocks: [
+                    BuildingBlock.LEND, 
+                    BuildingBlock.WITHDRAW
+                  ],
                   siloMarketName: siloMarket.marketName,
                   siloMarketAddress: siloMarket.marketAddress,
                   siloTokenType: 'COLLATERAL_ONLY'
@@ -224,7 +302,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   ];
 
   // Retrieve and process specific protocol tokens
-  for (const { method, name, processTokens } of protocolMethods) {
+  for (const { method, name, processTokens } of complexProtocolMethods) {
     if (methodNames.includes(method)) {
       try {
         console.log(`🔬 Attempting to retrieve ${name} tokens using ${method}...`);
@@ -245,9 +323,16 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     }
   }
   
-  // Get Pro Vaults for Arbitrum
-  if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+  // Get Pro Vaults for Arbitrum - special handling as they need initialization
+  if (chainId === ChainId.ARBITRUM_ONE) {
     try {
+      // Ensure Pro Vaults are initialized
+      if (!initializedProVaults[chainId]) {
+        console.log('🏦 Initializing Pro Vaults for Arbitrum...');
+        await tokenlist.initializeProVaultsTokens();
+        initializedProVaults[chainId] = true;
+      }
+      
       console.log('🏦 Getting Pro Vault tokens...');
       const proVaultTokens = await tokenlist.getAllProVaultsTokens() as unknown as ProVaultToken[];
       
@@ -365,39 +450,99 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
   
   console.log(`Available methods for chain ${chainId}:`, methodNames);
   
-  // 1. Try specific protocol getter methods (getAllAaveTokens, getAllSiloTokens, etc.)
-  const specificProtocolMethods = methodNames.filter(name => name.startsWith('getAll') && name.endsWith('Tokens'));
-  for (const method of specificProtocolMethods) {
-    // Extract protocol name from method name (e.g., "getAllAaveTokens" -> "aave")
-    const protocolMatch = method.match(/^getAll(.+)Tokens$/);
-    if (!protocolMatch) continue;
+  // Define all known protocols we want to check
+  const protocolsToCheck = [
+    // DEXes
+    { id: 'uniswap', method: 'getAllUniswapTokens' },
+    { id: 'balancer', method: 'getAllBalancerTokens' },
+    { id: 'camelot', method: 'getAllCamelotTokens' },
+    { id: 'velodrome', method: 'getAllVelodromeTokens' },
+    { id: 'aerodrome', method: 'getAllAerodromeTokens' },
+    { id: 'openocean', method: 'getAllOpenoceanTokens' },
+    // Lending
+    { id: 'aave', method: 'getAllAaveTokens' },
+    { id: 'compound', method: 'getAllCompoundTokens' },
+    { id: 'morpho', method: 'getAllMorphoTokens' },
+    { id: 'silo', method: 'getAllSiloTokens' },
+    // Yield
+    { id: 'pendle', method: 'getAllPendleTokens' },
+    // Pro Vaults is handled separately
+  ];
+  
+  // 1. Check all known protocols with their specific methods
+  for (const { id, method } of protocolsToCheck) {
+    if (addedProtocolIds.has(id)) continue; // Skip if already added
     
-    const protocolId = protocolMatch[1].toLowerCase();
-    if (addedProtocolIds.has(protocolId)) continue;
+    // Skip protocols that we know don't exist on certain chains
+    if ((chainId === ChainId.OPTIMISM && ['balancer', 'camelot', 'aerodrome'].includes(id)) ||
+        (chainId === ChainId.BASE && ['balancer', 'camelot', 'velodrome'].includes(id)) ||
+        (chainId === ChainId.ARBITRUM_ONE && ['velodrome', 'aerodrome'].includes(id))) {
+      console.log(`⏩ Skipping ${id} for chain ${chainId} - known to be unavailable`);
+      continue;
+    }
     
-    try {
-      console.log(`Testing for ${protocolId} tokens using ${method}...`);
-      const tokens = await (tokenlist as any)[method]();
-      
-      if (tokens && tokens.length > 0) {
-        protocols.push({
-          id: protocolId,
-          name: getProtocolLabel(protocolId),
-          logoURI: getProtocolLogoURI(protocolId),
-          chainId
-        });
-        addedProtocolIds.add(protocolId);
-        console.log(`✅ Added ${protocolId} protocol with ${tokens.length} tokens`);
-      } else {
-        console.log(`❌ No tokens found for ${protocolId} protocol`);
+    if (methodNames.includes(method)) {
+      try {
+        console.log(`Testing for ${id} tokens using ${method}...`);
+        const tokens = await (tokenlist as any)[method]();
+        
+        if (tokens && tokens.length > 0) {
+          protocols.push({
+            id,
+            name: getProtocolLabel(id),
+            logoURI: getProtocolLogoURI(id),
+            chainId
+          });
+          addedProtocolIds.add(id);
+          console.log(`✅ Added ${id} protocol with ${tokens.length} tokens`);
+        } else {
+          console.log(`❌ No tokens found for ${id} protocol`);
+        }
+      } catch (error) {
+        console.log(`❌ Method ${method} failed:`, error);
       }
-    } catch (error) {
-      console.log(`❌ Method ${method} failed:`, error);
+    } else {
+      console.log(`⚠️ Method ${method} not found for ${id}`);
+      
+      // Try with getTokensByProtocol as fallback for protocols without dedicated methods
+      if (methodNames.includes('getTokensByProtocol')) {
+        try {
+          console.log(`Trying fallback with getTokensByProtocol for ${id}...`);
+          // Try both upper and lowercase
+          let tokens = null;
+          
+          try {
+            tokens = await (tokenlist as any).getTokensByProtocol(id.toUpperCase());
+          } catch (upperError) {
+            try {
+              tokens = await (tokenlist as any).getTokensByProtocol(id);
+            } catch (lowerError) {
+              console.log(`❌ Both case variants failed for ${id}`);
+              continue;
+            }
+          }
+          
+          if (tokens && tokens.length > 0) {
+            protocols.push({
+              id,
+              name: getProtocolLabel(id),
+              logoURI: getProtocolLogoURI(id),
+              chainId
+            });
+            addedProtocolIds.add(id);
+            console.log(`✅ Added ${id} protocol with ${tokens.length} tokens using getTokensByProtocol`);
+          } else {
+            console.log(`❌ No tokens found for ${id} protocol using getTokensByProtocol`);
+          }
+        } catch (error) {
+          console.log(`❌ getTokensByProtocol failed for ${id}:`, error);
+        }
+      }
     }
   }
   
   // 2. Try Pro Vaults specifically for Arbitrum
-  if (chainId === ChainId.ARBITRUM_ONE && !addedProtocolIds.has('pro-vaults') && methodNames.includes('getAllProVaultsTokens')) {
+  if (chainId === ChainId.ARBITRUM_ONE && !addedProtocolIds.has('pro-vaults')) {
     try {
       // Ensure Pro Vaults are initialized
       if (!initializedProVaults[chainId]) {
@@ -464,48 +609,6 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
       }
     } catch (error) {
       console.log('❌ Failed to use Protocols enum:', error);
-      
-      // If we can't import the Protocols enum, try with known protocol IDs
-      const commonProtocolIds = [
-        'aave', 'compound', 'pendle', 'silo', 'morpho', 
-        'uniswap', 'balancer', 'camelot', 'velodrome', 'aerodrome', 'openocean'
-      ];
-      
-      for (const id of commonProtocolIds) {
-        if (addedProtocolIds.has(id)) continue;
-        
-        try {
-          console.log(`Testing for ${id} tokens using getTokensByProtocol (common protocols)...`);
-          // Try both upper and lowercase
-          let tokens = null;
-          
-          try {
-            tokens = await (tokenlist as any).getTokensByProtocol(id.toUpperCase());
-          } catch (upperError) {
-            try {
-              tokens = await (tokenlist as any).getTokensByProtocol(id);
-            } catch (lowerError) {
-              console.log(`❌ Both case variants failed for ${id}`);
-              continue;
-            }
-          }
-          
-          if (tokens && tokens.length > 0) {
-            protocols.push({
-              id,
-              name: getProtocolLabel(id),
-              logoURI: getProtocolLogoURI(id),
-              chainId
-            });
-            addedProtocolIds.add(id);
-            console.log(`✅ Added ${id} protocol with ${tokens.length} tokens`);
-          } else {
-            console.log(`❌ No tokens found for ${id} protocol`);
-          }
-        } catch (error) {
-          console.log(`❌ getTokensByProtocol failed for ${id}:`, error);
-        }
-      }
     }
   }
   
@@ -559,7 +662,29 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
     console.warn(`No protocols were found for chain ${chainId} directly from NPM package!`);
   }
   
-  return protocols;
+  // Filter protocols to ensure we only return those appropriate for the current chain
+  const filteredProtocols = filterProtocolsByChainAvailability(protocols, chainId);
+  console.log(`After chain availability filtering: ${filteredProtocols.length} protocols`);
+  
+  return filteredProtocols;
+}
+
+// Function to filter protocols based on chain-specific availability
+function filterProtocolsByChainAvailability(protocols: Protocol[], chainId: number): Protocol[] {
+  // Define chain-specific protocols 
+  const chainProtocols: Record<number, string[]> = {
+    [ChainId.ARBITRUM_ONE]: ['aave', 'compound', 'pendle', 'silo', 'pro-vaults', 'camelot', 'uniswap', 'balancer', 'openocean'],
+    [ChainId.OPTIMISM]: ['aave', 'compound', 'pendle', 'silo', 'morpho', 'uniswap', 'velodrome', 'openocean'],
+    [ChainId.BASE]: ['aave', 'compound', 'pendle', 'silo', 'morpho', 'aerodrome', 'openocean']
+  };
+  
+  // If we don't have chain-specific protocols, return all
+  if (!chainProtocols[chainId]) return protocols;
+  
+  // Filter protocols based on chain availability
+  return protocols.filter(protocol => {
+    return chainProtocols[chainId].includes(protocol.id.toLowerCase());
+  });
 }
 
 // Function to get available actions for a token on a specific protocol
