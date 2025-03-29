@@ -32,13 +32,17 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
-  const hasBuildingBlocks = token.extensions?.buildingBlocks && token.extensions.buildingBlocks.length > 0;
+  
+  // Get the building blocks from either the direct property or extensions
+  const buildingBlocks = token.buildingBlocks || token.extensions?.buildingBlocks || [];
+  const hasBuildingBlocks = buildingBlocks.length > 0;
+  
+  // Get the protocols from either the direct property or extensions
+  const protocols = token.protocols || token.extensions?.protocols || [];
   
   // Extract token details
   const symbol = token.symbol || '';
   const name = token.name || '';
-  const protocols = token.extensions?.protocols || [];
-  const buildingBlocks = token.extensions?.buildingBlocks || [];
   
   // Handle click event
   const handleClick = () => {

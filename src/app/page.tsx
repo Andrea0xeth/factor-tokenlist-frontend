@@ -102,10 +102,9 @@ export default function Home() {
                 Action
               </label>
               <BuildingBlockFilter 
-                buildingBlocks={Object.values(BuildingBlock)}
+                buildingBlocks={Object.values(BuildingBlock).map(value => value.toString())}
                 selected={selectedBuildingBlock}
                 onChange={setSelectedBuildingBlock}
-                isLoading={isLoading}
               />
             </div>
           </div>

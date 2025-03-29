@@ -229,9 +229,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     // Filter by building block
     if (selectedBuildingBlock) {
-      result = result.filter(token => 
-        token.buildingBlocks?.includes(selectedBuildingBlock)
-      );
+      result = result.filter(token => {
+        // Check in both possible locations of building blocks
+        const tokenBuildingBlocks = token.buildingBlocks || token.extensions?.buildingBlocks || [];
+        return tokenBuildingBlocks.includes(selectedBuildingBlock);
+      });
     }
     
     // Filter by text
