@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Token, Protocol } from '../types';
+import { Token, Protocol } from '../types/index';
 import TokenCard from './TokenCard';
 
 interface TokenGridProps {
@@ -36,8 +36,6 @@ const TokenGrid = memo(({
         <TokenCard
           key={`${token.address}-${token.chainId || chainId}-${index}`}
           token={token}
-          protocols={protocols}
-          chainId={chainId}
         />
       ))}
     </div>

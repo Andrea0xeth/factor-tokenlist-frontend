@@ -48,94 +48,84 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Factor TokenList Explorer
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">
-              View tokens and protocols available on
-              {SUPPORTED_CHAIN_IDS.length === 1 ? (
-                <span className="ml-1 font-medium">{getChainName(SUPPORTED_CHAIN_IDS[0])}</span>
-              ) : (
-                <span> multiple chains</span>
-              )}
-            </p>
-          </div>
-          
+      <div className="container mx-auto px-4 pb-8">
+        {/* Chain selector moved to the sticky filter section */}
+        
+        {/* Sticky filters section */}
+        <div className="sticky top-0 z-10 pt-4 pb-2 bg-gray-50 dark:bg-gray-900">
           {SUPPORTED_CHAIN_IDS.length > 1 && (
-            <ChainSelector 
-              selectedChain={selectedChain} 
-              onChainChange={changeChain} 
-            />
+            <div className="mb-4 flex justify-end">
+              <ChainSelector 
+                selectedChain={selectedChain} 
+                onChainChange={changeChain} 
+              />
+            </div>
           )}
-        </div>
-        
-        {/* Filters section */}
-        <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Search
-              </label>
-              <SearchInput 
-                value={searchText} 
-                onChange={setSearchText} 
-                placeholder="Name, symbol or address..."
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Protocol
-              </label>
-              <ProtocolFilter 
-                protocols={protocols} 
-                selected={selectedProtocolId}
-                onChange={setSelectedProtocol}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Action
-              </label>
-              <BuildingBlockFilter 
-                buildingBlocks={Object.values(BuildingBlock)}
-                selected={selectedBuildingBlock}
-                onChange={setSelectedBuildingBlock}
-                isLoading={isLoading}
-              />
-            </div>
-          </div>
           
-          {hasActiveFilters && (
-            <div className="mt-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                {filteredTokens.length} results found
+          <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Search
+                </label>
+                <SearchInput 
+                  value={searchText} 
+                  onChange={setSearchText} 
+                  placeholder="Name, symbol or address..."
+                />
               </div>
-              <button
-                onClick={resetFilters}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                aria-label="Reset all filters"
-              >
-                Reset filters
-              </button>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Protocol
+                </label>
+                <ProtocolFilter 
+                  protocols={protocols} 
+                  selected={selectedProtocolId}
+                  onChange={setSelectedProtocol}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Action
+                </label>
+                <BuildingBlockFilter 
+                  buildingBlocks={Object.values(BuildingBlock)}
+                  selected={selectedBuildingBlock}
+                  onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
+                  isLoading={isLoading}
+                />
+              </div>
+            </div>
+            
+            {hasActiveFilters && (
+              <div className="mt-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  {filteredTokens.length} results found
+                </div>
+                <button
+                  onClick={resetFilters}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  aria-label="Reset all filters"
+                >
+                  Reset filters
+                </button>
+              </div>
+            )}
+          </div>
+        
+          {SUPPORTED_CHAIN_IDS.length > 1 && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+              <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                You are viewing tokens on <span className="font-medium mx-1">{getChainName(selectedChain)}</span>
+              </p>
             </div>
           )}
         </div>
-        
-        {SUPPORTED_CHAIN_IDS.length > 1 && (
-          <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-            <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              You are viewing tokens on <span className="font-medium mx-1">{getChainName(selectedChain)}</span>
-            </p>
-          </div>
-        )}
         
         {/* Loading state */}
         <Transition

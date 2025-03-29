@@ -11,9 +11,30 @@ export interface Token {
   decimals: number;
   logoURI?: string;
   tags?: string[];
+  vaultAddress?: string;
   extensions?: {
     protocols?: string[];
     buildingBlocks?: BuildingBlock[];
+    // Pendle-specific extensions
+    pendleTokenType?: 'PT' | 'YT' | 'LP';
+    expiry?: string;
+    
+    // Silo-specific extensions
+    siloMarketName?: string;
+    siloMarketAddress?: string;
+    siloTokenType?: 'UNDERLYING' | 'DEBT' | 'COLLATERAL' | 'COLLATERAL_ONLY';
+    
+    // Pro Vaults extensions
+    vaultInfo?: {
+      vaultAddress?: string;
+      strategyAddress?: string;
+      depositToken?: string;
+      apy?: number;
+      deprecated?: boolean;
+    };
+    
+    // Allow additional arbitrary properties
+    [key: string]: any;
   }
   protocols?: string[] | any[]; // Support for legacy protocol format
   buildingBlocks?: BuildingBlock[]; // Support for legacy building blocks format
@@ -69,6 +90,7 @@ export interface Action {
   buildingBlock: BuildingBlock;
   protocolId: string;
   tokenAddress: string;
+  apy?: number;
 }
 
 export interface StrapiToken {

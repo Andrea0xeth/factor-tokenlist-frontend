@@ -1,27 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import { TokenInfo } from '@factordao/tokenlist';
+import { Token } from '../types/index';
 import TokenImage from './TokenImage';
 import { getProtocolLabel } from '../lib/tokenlist';
 import { BuildingBlock } from '@factordao/tokenlist';
+import Link from 'next/link';
+import Image from 'next/image';
+import { getExplorerUrl } from '../lib/chains';
+import { useAppContext } from '../context/AppContext';
 
 // Map of building blocks with their readable names
-const BUILDING_BLOCK_NAMES: Record<BuildingBlock, string> = {
+const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
   [BuildingBlock.BORROW]: 'Borrow',
-  [BuildingBlock.CDP]: 'CDP',
   [BuildingBlock.DEPOSIT]: 'Deposit',
-  [BuildingBlock.GRANTREWARDS]: 'Grant Rewards',
   [BuildingBlock.STAKE]: 'Stake',
-  [BuildingBlock.TRANSFER]: 'Transfer',
   [BuildingBlock.WITHDRAW]: 'Withdraw',
-  [BuildingBlock.ZAP]: 'Zap',
+  [BuildingBlock.LEND]: 'Lend',
+  [BuildingBlock.PROVIDE_LIQUIDITY]: 'Provide Liquidity',
+  [BuildingBlock.REMOVE_LIQUIDITY]: 'Remove Liquidity',
+  [BuildingBlock.REPAY]: 'Repay',
 };
 
 interface TokenCardProps {
-  token: TokenInfo;
+  token: Token;
   isSelected?: boolean;
-  onClick?: (token: TokenInfo) => void;
+  onClick?: (token: Token) => void;
 }
 
 /**
@@ -29,6 +33,8 @@ interface TokenCardProps {
  */
 export default function TokenCard({ token, isSelected = false, onClick }: TokenCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { state } = useAppContext();
+  const { selectedChain } = state;
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
@@ -39,6 +45,9 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   const name = token.name || '';
   const protocols = token.extensions?.protocols || [];
   const buildingBlocks = token.extensions?.buildingBlocks || [];
+  
+  // Get the correct explorer URL for the selected chain
+  const explorerLink = getExplorerUrl(selectedChain, token.address);
   
   // Handle click event
   const handleClick = () => {
@@ -63,7 +72,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
         <div className="flex items-center mb-3">
           <TokenImage
             src={token.logoURI}
-            symbol={token.symbol}
+            alt={token.symbol}
             address={token.address}
             size={32}
             className="mr-3"
@@ -93,7 +102,7 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               Address
             </span>
             <a 
-              href={`https://etherscan.io/token/${token.address}`}
+              href={getExplorerUrl(selectedChain, token.address)}
               target="_blank" 
               rel="noopener noreferrer"
               className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"
@@ -159,6 +168,18 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
               ))}
             </div>
           </div>
+        )}
+
+        {/* Block Explorer Link */}
+        {explorerLink && (
+          <Link 
+            href={explorerLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-2"
+          >
+            View on Block Explorer
+          </Link>
         )}
       </div>
     </div>

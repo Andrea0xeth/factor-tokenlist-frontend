@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Token, Protocol } from '../types';
+import { Token, Protocol } from '../types/index';
 import TokenImage from './TokenImage';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 

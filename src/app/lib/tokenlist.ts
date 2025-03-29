@@ -21,8 +21,23 @@ export const buildingBlockToAction: Record<string, string> = {
   [BuildingBlock.STAKE]: 'Stake',
 };
 
+// Interface for Pro Vault tokens from the tokenlist
+interface ProVaultToken {
+  vaultAddress: string;
+  name: string;
+  symbol: string;
+  decimals?: number;
+  logoURI?: string;
+  strategyAddress?: string;
+  depositToken?: string;
+  apy?: number;
+  deprecated?: boolean;
+}
+
 // Cache of FactorTokenlist instances to avoid recreating them each time
 const tokenlistInstances: Record<number, FactorTokenlist> = {};
+// Track which instances have already initialized Pro Vaults
+const initializedProVaults: Record<number, boolean> = {};
 
 // Function to get a FactorTokenlist instance for a given chain
 async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
@@ -33,25 +48,254 @@ async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
   console.log(`Initializing FactorTokenlist for chain ${chainId}...`);
   const instance = new FactorTokenlist(chainId);
   tokenlistInstances[chainId] = instance;
+  
+  // Initialize Pro Vaults for Arbitrum
+  if (chainId === ChainId.ARBITRUM_ONE) {
+    try {
+      console.log('Initializing Pro Vaults for Arbitrum...');
+      await instance.initializeProVaultsTokens();
+      initializedProVaults[chainId] = true;
+      console.log('Pro Vaults initialization successful');
+    } catch (error) {
+      console.warn('Failed to initialize Pro Vaults:', error);
+    }
+  }
+  
   console.log(`FactorTokenlist initialized successfully for chain ${chainId}`);
   return instance;
 }
 
 // Function to get all available tokens
 export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Promise<Token[]> {
-  console.log(`Requesting tokens for chain: ${chainId}...`);
+  console.log(`🔍 Requesting tokens for chain: ${chainId}...`);
   
   // Get the tokenlist instance for this chain
   const tokenlist = await getTokenlistInstance(chainId);
   
-  // Retrieve tokens from the tokenlist
-  console.log(`Calling getAllGeneralTokens for chain ${chainId}...`);
-  const tokens = await tokenlist.getAllGeneralTokens();
+  // Create an array to collect all tokens
+  let allTokens: any[] = [];
   
-  console.log(`Received ${tokens.length} tokens for chain ${chainId}`);
+  // Retrieve general tokens from the tokenlist
+  console.log(`📋 Calling getAllGeneralTokens for chain ${chainId}...`);
+  const generalTokens = await tokenlist.getAllGeneralTokens();
+  allTokens = [...generalTokens];
+  console.log(`📊 Received ${generalTokens.length} general tokens for chain ${chainId}`);
+
+  // Debug: Log method names to see available protocol-specific methods
+  const methodNames = Object.getOwnPropertyNames(Object.getPrototypeOf(tokenlist))
+    .filter(name => typeof (tokenlist as any)[name] === 'function');
+  console.log('🕵️ Available methods:', methodNames);
+
+  // Specific protocol token retrieval methods with enhanced handling
+  const protocolMethods = [
+    { 
+      method: 'getAllPendleTokens', 
+      name: 'PENDLE',
+      processTokens: (tokens: any[]) => {
+        // Process Pendle tokens to extract all relevant token types
+        const processedPendleTokens: Token[] = [];
+        tokens.forEach(pendleToken => {
+          // Add Principal Token (PT)
+          if (pendleToken.pt) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.pt, chainId),
+              protocols: ['pendle', 'pt'],
+              buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
+              extensions: {
+                pendleTokenType: 'PT',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+          
+          // Add Yield Token (YT)
+          if (pendleToken.yt) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.yt, chainId),
+              protocols: ['pendle', 'yt'],
+              buildingBlocks: [BuildingBlock.PROVIDE_LIQUIDITY],
+              extensions: {
+                pendleTokenType: 'YT',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+          
+          // Add Liquidity Pool Token (LP)
+          if (pendleToken.lp) {
+            processedPendleTokens.push({
+              ...convertToken(pendleToken.lp, chainId),
+              protocols: ['pendle', 'lp'],
+              buildingBlocks: [
+                BuildingBlock.PROVIDE_LIQUIDITY, 
+                BuildingBlock.REMOVE_LIQUIDITY
+              ],
+              extensions: {
+                pendleTokenType: 'LP',
+                expiry: pendleToken.expiry
+              }
+            });
+          }
+        });
+        return processedPendleTokens;
+      }
+    },
+    { 
+      method: 'getAllSiloTokens', 
+      name: 'SILO',
+      processTokens: (tokens: any[]) => {
+        // Process Silo tokens to extract all relevant token types
+        const processedSiloTokens: Token[] = [];
+        tokens.forEach(siloMarket => {
+          // Process each asset in the Silo market
+          siloMarket.asset.forEach((asset: any) => {
+            // Underlying Asset
+            if (asset.underlyingAsset) {
+              processedSiloTokens.push({
+                ...convertToken(asset.underlyingAsset, chainId),
+                protocols: ['silo', 'underlying'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.BORROW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'UNDERLYING'
+                }
+              });
+            }
+            
+            // Debt Token
+            if (asset.debtToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.debtToken, chainId),
+                protocols: ['silo', 'debt'],
+                buildingBlocks: [
+                  BuildingBlock.BORROW, 
+                  BuildingBlock.REPAY
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'DEBT'
+                }
+              });
+            }
+            
+            // Collateral Token
+            if (asset.collateralToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.collateralToken, chainId),
+                protocols: ['silo', 'collateral'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.WITHDRAW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'COLLATERAL'
+                }
+              });
+            }
+            
+            // Collateral Only Token
+            if (asset.collateralOnlyToken) {
+              processedSiloTokens.push({
+                ...convertToken(asset.collateralOnlyToken, chainId),
+                protocols: ['silo', 'collateral-only'],
+                buildingBlocks: [
+                  BuildingBlock.LEND, 
+                  BuildingBlock.WITHDRAW
+                ],
+                extensions: {
+                  siloMarketName: siloMarket.marketName,
+                  siloMarketAddress: siloMarket.marketAddress,
+                  siloTokenType: 'COLLATERAL_ONLY'
+                }
+              });
+            }
+          });
+        });
+        return processedSiloTokens;
+      }
+    }
+  ];
+
+  // Retrieve and process specific protocol tokens
+  for (const { method, name, processTokens } of protocolMethods) {
+    if (methodNames.includes(method)) {
+      try {
+        console.log(`🔬 Attempting to retrieve ${name} tokens using ${method}...`);
+        const tokens = await (tokenlist as any)[method]();
+        
+        if (tokens && tokens.length > 0) {
+          const processedTokens = processTokens(tokens);
+          console.log(`✅ Found and processed ${processedTokens.length} ${name} tokens`);
+          allTokens.push(...processedTokens);
+        } else {
+          console.log(`❌ No ${name} tokens found`);
+        }
+      } catch (error) {
+        console.warn(`❗ Error retrieving ${name} tokens:`, error);
+      }
+    } else {
+      console.log(`❓ Method ${method} not found for ${name} tokens`);
+    }
+  }
+  
+  // Get Pro Vaults for Arbitrum
+  if (chainId === ChainId.ARBITRUM_ONE && initializedProVaults[chainId]) {
+    try {
+      console.log('🏦 Getting Pro Vault tokens...');
+      const proVaultTokens = await tokenlist.getAllProVaultsTokens() as unknown as ProVaultToken[];
+      
+      if (proVaultTokens && proVaultTokens.length > 0) {
+        // Process Pro Vault tokens to match our format
+        const processedProVaultTokens = proVaultTokens.map((vault: ProVaultToken) => ({
+          address: vault.vaultAddress,
+          name: vault.name,
+          symbol: vault.symbol,
+          decimals: vault.decimals || 18,
+          chainId: chainId,
+          protocols: ['pro-vaults'],
+          buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+          logoURI: vault.logoURI,
+          vaultAddress: vault.vaultAddress,
+          extensions: {
+            protocols: ['pro-vaults'],
+            buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+            vaultInfo: {
+              vaultAddress: vault.vaultAddress,
+              strategyAddress: vault.strategyAddress,
+              depositToken: vault.depositToken,
+              apy: vault.apy,
+              deprecated: vault.deprecated
+            }
+          }
+        }));
+        
+        allTokens = [...allTokens, ...processedProVaultTokens];
+        console.log(`🏦 Added ${processedProVaultTokens.length} Pro Vault tokens`);
+      } else {
+        console.log('🏦 No Pro Vault tokens found');
+      }
+    } catch (error) {
+      console.warn('🚨 Failed to load Pro Vault tokens:', error);
+    }
+  }
   
   // Convert tokens to the format required by the frontend
-  return tokens.map((token: any) => convertToken(token, chainId));
+  const processedTokens = allTokens.map((token: any) => convertToken(token, chainId));
+
+  // Debug: Log processed tokens
+  console.log(`🎉 Total processed tokens: ${processedTokens.length}`);
+  console.log('🔍 Processed token protocols:', 
+    [...new Set(processedTokens.flatMap(t => t.protocols))]
+  );
+
+  return processedTokens;
 }
 
 // Function to convert from tokenlist Token to frontend Token format
@@ -74,6 +318,7 @@ function convertToken(token: any, chainId: number): Token {
     tags: token.tags || [],
     protocols: protocols,
     buildingBlocks: buildingBlocks,
+    ...(token.vaultAddress && { vaultAddress: token.vaultAddress }),
     extensions: {
       ...(token.extensions || {}),
       protocols: protocols,
@@ -259,22 +504,24 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
     }
   }
   
-  // 4. Check if any tokens from getAllGeneralTokens belong to specific protocols
+  // 4. Extract protocols from all tokens
   try {
-    const allTokens = await tokenlist.getAllGeneralTokens();
-    console.log(`Examining ${allTokens.length} general tokens for protocol information...`);
-    
-    // Extract unique protocol IDs from the tokens
+    console.log('Extracting protocols from all tokens...');
+    // Try to get all tokens using an empty protocols array
+    const tokens = await tokenlist.getTokens([]);
     const protocolIdsFromTokens = new Set<string>();
-    for (const token of allTokens) {
+    
+    for (const token of tokens) {
       if (token.protocols && Array.isArray(token.protocols)) {
         token.protocols.forEach((p: string) => {
           if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
         });
       } 
       
-      if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
-        token.extensions.protocols.forEach((p: string) => {
+      // Use safe type assertions for extensions
+      const tokenWithExtensions = token as unknown as { extensions?: { protocols?: string[] } };
+      if (tokenWithExtensions.extensions?.protocols && Array.isArray(tokenWithExtensions.extensions.protocols)) {
+        tokenWithExtensions.extensions.protocols.forEach((p: string) => {
           if (typeof p === 'string') protocolIdsFromTokens.add(p.toLowerCase());
         });
       }
@@ -332,8 +579,9 @@ export async function getActionsByTokenAndProtocol(
       id: action.id,
       name: action.name,
       description: action.description || '',
-      protocol: protocolId,
-      token: tokenId,
+      buildingBlock: action.buildingBlock || BuildingBlock.LEND,
+      protocolId: protocolId,
+      tokenAddress: tokenId,
       apy: action.apy || undefined
     }));
   }

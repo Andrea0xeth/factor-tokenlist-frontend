@@ -1,4 +1,4 @@
-import { Token, Protocol, Action } from '../types';
+import { Token, Protocol, Action } from '../types/index';
 
 interface ActionListProps {
   actions: Action[];
@@ -20,7 +20,7 @@ export default function ActionList({ actions, token, protocol, onSelectAction }:
     <div className="space-y-2 mt-2">
       {actions.map(action => (
         <div
-          key={`${action.id}-${action.protocol}-${action.token}`}
+          key={`${action.id}-${action.protocolId}-${action.tokenAddress}`}
           className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
           onClick={() => onSelectAction(action)}
         >

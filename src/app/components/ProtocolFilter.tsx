@@ -118,6 +118,7 @@ export default function ProtocolFilter({
                         {protocol.logoURI && (
                           <TokenImage
                             src={protocol.logoURI}
+                            alt={protocol.name}
                             size={20}
                             className="mr-2"
                           />
