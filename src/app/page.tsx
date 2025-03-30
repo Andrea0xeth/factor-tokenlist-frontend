@@ -27,20 +27,22 @@ export default function Home() {
       isLoading,
       isChangingChain,
       error,
-      filters: { searchText, selectedProtocolId, selectedBuildingBlock }
+      filters: { searchText, selectedProtocolIds, selectedBuildingBlocks }
     },
     filteredTokens,
     setSearchText,
-    setSelectedProtocol,
-    setSelectedBuildingBlock,
+    setSelectedProtocols,
+    toggleProtocol,
+    setSelectedBuildingBlocks,
+    toggleBuildingBlock,
     resetFilters,
     changeChain
   } = useAppContext();
 
   // Determine if there are active filters
   const hasActiveFilters = searchText.trim() !== '' || 
-    selectedProtocolId !== null || 
-    selectedBuildingBlock !== null;
+    selectedProtocolIds.length > 0 || 
+    selectedBuildingBlocks.length > 0;
 
   // Check if we should show skeleton loaders
   const showSkeletons = isLoading || isChangingChain;
@@ -66,52 +68,111 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
+      {/* Header - not sticky anymore */}
+      <Navbar 
+        className="bg-white dark:bg-gray-800 shadow-sm" 
+        selectedChainId={selectedChain}
+        onChainChange={changeChain}
+      />
       
-      <div className="container mx-auto px-4 pb-8">
-        {/* Desktop filters - hidden on mobile */}
-        {!isMobile && (
-          <div className="my-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <div className="w-full md:w-1/3">
-                <SearchInput 
-                  value={searchText} 
-                  onChange={setSearchText} 
-                  placeholder="Search by name, symbol or address..."
-                />
+      <div className="container mx-auto px-4 py-6">
+        {/* Mobile filter toolbar */}
+        <div className="md:hidden mb-4">
+          <MobileFilterToolbar 
+            protocols={protocols}
+            buildingBlocks={Object.values(BuildingBlock)}
+            selectedProtocol={selectedProtocolIds.join(', ')}
+            selectedBuildingBlock={selectedBuildingBlocks.join(', ')}
+            searchText={searchText}
+            onSearchChange={setSearchText}
+            onProtocolClick={(value) => setSelectedProtocols(value)}
+            onBuildingBlockClick={(value) => setSelectedBuildingBlocks(value)}
+            onResetFilters={resetFilters}
+          />
+        </div>
+        
+        {/* Desktop filters and search - keep this sticky */}
+        <div className="hidden md:block sticky top-0 bg-white dark:bg-gray-800 z-40 shadow-md mb-10">
+          {/* Title bar with chain selector */}
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-xl font-bold dark:text-white flex items-center">
+              Token List
+              <div className="ml-3 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-full">
+                {getChainName(selectedChain)}
               </div>
-              
-              <div className="flex-1 flex flex-col md:flex-row gap-4 w-full">
-                <div className="w-full md:w-1/2">
-                  <ProtocolFilter 
-                    protocols={protocols} 
-                    selected={selectedProtocolId}
-                    onChange={setSelectedProtocol}
-                    className="w-full"
-                  />
-                </div>
-                <div className="w-full md:w-1/2">
-                  <BuildingBlockFilter 
-                    buildingBlocks={Object.values(BuildingBlock)}
-                    selected={selectedBuildingBlock}
-                    onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
-                    isLoading={isLoading}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-              
-              {hasActiveFilters && (
+            </h1>
+            
+            {/* Active filters badges */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2">
+                {selectedProtocolIds.length > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full">
+                    <span>{selectedProtocolIds.map(id => protocols.find(p => p.id === id)?.name || id).join(', ')}</span>
+                    <button onClick={() => setSelectedProtocols([])} className="ml-1 text-blue-500 hover:text-blue-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
+                {selectedBuildingBlocks.length > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm rounded-full">
+                    <span>{selectedBuildingBlocks.join(', ')}</span>
+                    <button onClick={() => setSelectedBuildingBlocks([])} className="ml-1 text-purple-500 hover:text-purple-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
+                {searchText.trim() !== '' && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm rounded-full">
+                    <span>"{searchText}"</span>
+                    <button onClick={() => setSearchText('')} className="ml-1 text-green-500 hover:text-green-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
                 <button
-                  className="whitespace-nowrap px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center"
                   onClick={resetFilters}
+                  className="ml-2 px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-300 text-sm rounded-full transition-colors flex items-center"
                 >
-                  <XMarkIcon className="h-4 w-4 mr-1" /> Reset Filters
+                  <XMarkIcon className="h-3 w-3 mr-1" />
+                  Clear All
                 </button>
-              )}
+              </div>
+            )}
+          </div>
+          
+          {/* Filter controls */}
+          <div className="container mx-auto px-4 py-3 grid grid-cols-12 gap-4 items-center">
+            {/* Search field - spans 4 columns */}
+            <div className="col-span-4">
+              <SearchInput 
+                value={searchText} 
+                onChange={setSearchText} 
+              />
+            </div>
+            
+            {/* Protocol filter - spans 4 columns */}
+            <div className="col-span-4">
+              <ProtocolFilter 
+                protocols={protocols} 
+                selected={selectedProtocolIds}
+                onChange={(value) => setSelectedProtocols(value)}
+              />
+            </div>
+            
+            {/* Building block filter - spans 4 columns */}
+            <div className="col-span-4">
+              <BuildingBlockFilter 
+                buildingBlocks={Object.values(BuildingBlock)}
+                selected={selectedBuildingBlocks}
+                onChange={(value) => setSelectedBuildingBlocks(value as BuildingBlock[])}
+                isLoading={isLoading}
+              />
             </div>
           </div>
-        )}
+        </div>
         
         {/* Loading state */}
         <Transition
@@ -194,7 +255,17 @@ export default function Home() {
         
         {/* Mobile Bottom Filter Toolbar */}
         {isMobile && (
-          <MobileFilterToolbar />
+          <MobileFilterToolbar 
+            protocols={protocols}
+            buildingBlocks={Object.values(BuildingBlock)}
+            selectedProtocol={selectedProtocolIds.join(', ')}
+            selectedBuildingBlock={selectedBuildingBlocks.join(', ')}
+            searchText={searchText}
+            onSearchChange={setSearchText}
+            onProtocolClick={(value) => setSelectedProtocols(value)}
+            onBuildingBlockClick={(value) => setSelectedBuildingBlocks(value)}
+            onResetFilters={resetFilters}
+          />
         )}
       </div>
     </main>

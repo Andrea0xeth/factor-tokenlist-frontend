@@ -2,16 +2,27 @@ import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import ChainSelector from './ChainSelector';
 import { SUPPORTED_CHAIN_IDS } from '../lib/tokenlist';
+import { ChainId } from '@factordao/tokenlist';
+
+interface NavbarProps {
+  className?: string;
+  selectedChainId?: ChainId;
+  onChainChange?: (chainId: ChainId) => void;
+}
 
 /**
  * Component for the main navigation bar
  * Now includes the chain selector in the header
  */
-export default function Navbar() {
-  const { state: { selectedChain }, changeChain } = useAppContext();
+export default function Navbar({ className = '', selectedChainId, onChainChange }: NavbarProps) {
+  const appContext = useAppContext();
+  
+  // Use props if provided, otherwise fall back to context
+  const selectedChain = selectedChainId || appContext.state.selectedChain;
+  const handleChainChange = onChainChange || appContext.changeChain;
   
   return (
-    <header className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+    <header className={`bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 ${className}`}>
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and Title */}
@@ -41,16 +52,6 @@ export default function Navbar() {
           </div>
           
           <div className="flex items-center gap-5">
-            {/* Chain selector - only show if multiple chains are supported */}
-            {SUPPORTED_CHAIN_IDS.length > 1 && (
-              <div>
-                <ChainSelector 
-                  selectedChain={selectedChain} 
-                  onChainChange={changeChain} 
-                  className="min-w-[160px]"
-                />
-              </div>
-            )}
             
             {/* Links */}
             <div className="hidden md:flex items-center gap-4">
@@ -78,6 +79,16 @@ export default function Navbar() {
               >
                 Factor.fi
               </a>
+                          {/* Chain selector - only show if multiple chains are supported */}
+            {SUPPORTED_CHAIN_IDS.length > 1 && (
+              <div>
+                <ChainSelector 
+                  selectedChain={selectedChain} 
+                  onChainChange={handleChainChange} 
+                  className="min-w-[160px]"
+                />
+              </div>
+            )}
             </div>
           </div>
         </div>

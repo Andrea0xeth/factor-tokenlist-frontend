@@ -104,13 +104,11 @@ export default function useTokenImage({
 
   // Function to handle error and move to the next source
   const handleImageError = useCallback(() => {
-    setStatus('error');
-    
-    // Move to the next source only if we're not at the last one
     if (fallbackIndex < fallbackSources.length - 1) {
-      setFallbackIndex(prev => prev + 1);
+      setFallbackIndex(prevIndex => prevIndex + 1);
     }
-  }, [fallbackIndex, fallbackSources.length]);
+    setStatus('error');
+  }, [fallbackSources.length, fallbackIndex]);
 
   // Function to restart loading
   const retryLoading = useCallback(() => {
@@ -119,10 +117,18 @@ export default function useTokenImage({
     setStatus('loading');
   }, []);
 
-  // When the currentSrc changes, update the status
+  // When the source inputs change, reset the loading process
   useEffect(() => {
-    setStatus('loading');
-  }, [currentSrc]);
+    setFallbackIndex(0);
+    setStatus('idle');
+  }, [src, symbol, address]);
+
+  // When fallbackIndex changes, update the status
+  useEffect(() => {
+    if (status !== 'error') {
+      setStatus('loading');
+    }
+  }, [fallbackIndex]);
 
   // Try to preload the current image
   useEffect(() => {

@@ -92,6 +92,17 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, onClick }) => {
               {name}
             </p>
           </div>
+          {/* Address section moved to top right */}
+          <a 
+            href={explorerLink} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 ml-2"
+            onClick={(e) => e.stopPropagation()}
+            title={`View on explorer: ${token.address}`}
+          >
+            {token.address.slice(0, 6)}...{token.address.slice(-4)}
+          </a>
         </div>
         
         {/* Building block badges - more compact */}
@@ -149,19 +160,6 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, onClick }) => {
             </div>
           </div>
         )}
-        
-        {/* Address section */}
-        <div className="mt-2 pt-1.5 border-t border-gray-200 dark:border-gray-700">
-          <a 
-            href={explorerLink} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 truncate block text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {token.address.slice(0, 6)}...{token.address.slice(-4)}
-          </a>
-        </div>
       </div>
     </div>
   );

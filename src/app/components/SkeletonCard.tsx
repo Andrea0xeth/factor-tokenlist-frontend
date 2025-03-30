@@ -37,6 +37,9 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-1 animate-pulse"></div>
             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
           </div>
+          
+          {/* Address in top right */}
+          <div className="ml-2 h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
         </div>
         
         {/* Building block badges - show in ~70% of cards */}
@@ -65,11 +68,6 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
               ></div>
             ))}
           </div>
-        </div>
-        
-        {/* Address section */}
-        <div className="mt-2 pt-1.5 border-t border-gray-200 dark:border-gray-700">
-          <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-24 mx-auto animate-pulse"></div>
         </div>
       </div>
     </div>
