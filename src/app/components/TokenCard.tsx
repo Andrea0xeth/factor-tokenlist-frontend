@@ -9,7 +9,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getExplorerUrl } from '../lib/chains';
 import { useAppContext } from '../context/AppContext';
-import { useWindowSize } from '@/app/hooks/useWindowSize';
 
 // Map of building blocks with their readable names
 const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
@@ -25,19 +24,16 @@ const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
 
 interface TokenCardProps {
   token: Token;
-  isSelected?: boolean;
-  onClick?: (token: Token) => void;
+  isMobile?: boolean;
 }
 
 /**
  * Card component that displays a token with its information
  */
-export default function TokenCard({ token, isSelected = false, onClick }: TokenCardProps) {
+export default function TokenCard({ token, isMobile = false }: TokenCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { state } = useAppContext();
   const { selectedChain } = state;
-  const { width } = useWindowSize();
-  const isMobile = width ? width < 768 : false;
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
@@ -59,126 +55,89 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
     }
   };
 
-  // Function to copy address to clipboard
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        // You could add a toast notification here
-        console.log('Address copied to clipboard');
-      })
-      .catch((err) => {
-        console.error('Failed to copy address: ', err);
-      });
-  };
-
   return (
-    <div
-      className={`bg-[#2C3156] rounded-lg p-4 transition-all duration-300 
-        ${isMobile ? 'w-full' : 'max-w-sm'} 
-        hover:shadow-lg hover:shadow-[#4A5387]/30 hover:scale-[1.02] h-full flex flex-col`}
-    >
-      <div className="flex items-center mb-4">
-        <div className="flex items-center mr-4">
-          <TokenImage
-            chainId={token.chainId}
-            address={token.address}
-            symbol={token.symbol}
-            width={isMobile ? 36 : 32}
-            height={isMobile ? 36 : 32}
-          />
-          <div className="ml-3">
-            <div className={`font-medium ${isMobile ? 'text-lg' : 'text-md'}`}>{symbol}</div>
-            <div className="text-[#B8BCD8] text-sm truncate max-w-[140px]">{name}</div>
+    <div className={`group rounded-xl overflow-hidden border border-zinc-800 transition-all duration-300 ${isMobile ? 'shadow-md hover:shadow-lg' : 'hover:border-zinc-600'}`}>
+      <div className="flex items-center p-4 space-x-3">
+        <div className={`relative ${isMobile ? 'w-12 h-12' : 'w-10 h-10'}`}>
+          <TokenImage token={token} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h3 className={`font-semibold text-white truncate ${isMobile ? 'text-lg' : ''}`}>
+              {token.name || token.symbol}
+            </h3>
+            {isProVault && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-purple-900 text-purple-100">
+                Pro Vault
+              </span>
+            )}
           </div>
+          <p className="text-sm text-zinc-400 truncate">
+            {token.symbol}
+          </p>
         </div>
       </div>
 
-      <div className="mt-2 mb-4 space-y-2">
-        {/* Building Blocks */}
-        {buildingBlocks.length > 0 && (
-          <div>
-            <div className="text-[#B8BCD8] text-xs mb-1">Building Blocks</div>
-            <div className="flex flex-wrap gap-2">
-              {buildingBlocks.map((block) => (
-                <span
-                  key={block}
-                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
-                  ${isMobile ? 'text-sm py-1.5' : 'text-xs py-1'} 
-                  bg-[#4A5387] text-white`}
-                >
-                  {block}
-                </span>
-              ))}
-            </div>
+      <div className={`p-4 pt-0 ${isMobile ? 'pb-5' : ''}`}>
+        {/* Protocol badges */}
+        {protocols && protocols.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {protocols.map((protocol) => (
+              <span
+                key={protocol}
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300"
+              >
+                {protocol}
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Protocols */}
-        {protocols.length > 0 && (
-          <div>
-            <div className="text-[#B8BCD8] text-xs mb-1">Protocols</div>
-            <div className="flex flex-wrap gap-2">
-              {protocols.map((protocol) => (
-                <span
-                  key={protocol}
-                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
-                  ${isMobile ? 'text-sm py-1.5' : 'text-xs py-1'} 
-                  bg-[#4A5387] text-white`}
-                >
-                  {protocol}
-                </span>
-              ))}
+        <div className={`mt-3 grid grid-cols-2 gap-2 ${isMobile ? 'text-sm' : 'text-xs'}`}>
+          {/* APY display */}
+          {apy !== undefined && (
+            <div className="bg-zinc-800 rounded p-2">
+              <span className="text-zinc-400">APY</span>
+              <div className={`font-semibold text-green-400 ${isMobile ? 'text-lg' : ''}`}>
+                {apy}%
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      <div className="mt-auto pt-3 border-t border-[#4A5387] flex justify-between items-center">
-        <button
-          onClick={() => copyToClipboard(token.address)}
-          className="text-[#B8BCD8] hover:text-white text-xs flex items-center"
-        >
-          <span className={`truncate ${isMobile ? 'max-w-[120px]' : 'max-w-[100px]'}`}>{token.address}</span>
-          <span className="ml-1">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-3 w-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          {/* TVL display */}
+          {tvl !== undefined && (
+            <div className="bg-zinc-800 rounded p-2">
+              <span className="text-zinc-400">TVL</span>
+              <div className={`font-semibold text-white ${isMobile ? 'text-lg' : ''}`}>
+                {tvl}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Card actions */}
+        <div className={`mt-3 flex space-x-2 ${isMobile ? 'pt-2' : ''}`}>
+          {explorerLink && (
+            <a
+              href={explorerLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-1 text-center py-2 rounded-md text-sm ${isMobile ? 'text-white bg-blue-600 hover:bg-blue-700' : 'text-blue-400 hover:text-blue-300 bg-zinc-800'}`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-          </span>
-        </button>
-        
-        <a
-          href={explorerLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`text-white bg-[#4A5387] ${isMobile ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-xs'} rounded flex items-center hover:bg-[#5A63A7]`}
-        >
-          <span>View in Explorer</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-3 w-3 ml-1"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-            />
-          </svg>
-        </a>
+              Explorer
+            </a>
+          )}
+          {token.extensions?.website && (
+            <a
+              href={token.extensions.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-1 text-center py-2 rounded-md text-sm ${isMobile ? 'text-white bg-purple-600 hover:bg-purple-700' : 'text-purple-400 hover:text-purple-300 bg-zinc-800'}`}
+            >
+              Website
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

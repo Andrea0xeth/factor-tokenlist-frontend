@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, Fragment } from 'react';
+import React, { Suspense, Fragment, useState, useEffect } from 'react';
 import { useAppContext } from './context/AppContext';
 import { ChevronUpIcon } from '@heroicons/react/24/outline';
 import Navbar from './components/Navbar';
@@ -15,7 +15,7 @@ import BuildingBlockFilter from './components/BuildingBlockFilter';
 import SearchInput from './components/SearchInput';
 import { Transition } from '@headlessui/react';
 import { BuildingBlock } from '@factordao/tokenlist';
-import { useWindowSize } from '@/app/hooks/useWindowSize';
+import MobileFilterToolbar from '@/app/components/MobileFilterToolbar';
 
 export default function Home() {
   // We use the Context to access the app's global state
@@ -37,9 +37,6 @@ export default function Home() {
     changeChain
   } = useAppContext();
 
-  const { width } = useWindowSize();
-  const isMobile = width ? width < 768 : false;
-
   // Determine if there are active filters
   const hasActiveFilters = searchText.trim() !== '' || 
     selectedProtocolId !== null || 
@@ -48,63 +45,163 @@ export default function Home() {
   // Check if we should show skeleton loaders
   const showSkeletons = isLoading || isChangingChain;
 
+  // State to track if we're on mobile
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Check for mobile screen on client side only
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkMobile);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar filters - hidden on mobile */}
-          {!isMobile && (
-            <div className="w-full md:w-64 shrink-0">
-              <Filters />
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
+      
+      <div className="container mx-auto px-4 pb-8">
+        {/* Chain selector */}
+        {SUPPORTED_CHAIN_IDS.length > 1 && (
+          <div className="mb-4 flex justify-end">
+            <ChainSelector 
+              selectedChain={selectedChain} 
+              onChainChange={changeChain} 
+            />
+          </div>
+        )}
+        
+        {/* Desktop filters - hidden on mobile */}
+        {!isMobile && (
+          <div className="mb-8 flex flex-col sm:flex-row gap-4">
+            <div className="w-full sm:w-1/2 md:w-1/3">
+              <SearchInput 
+                value={searchText} 
+                onChange={setSearchText} 
+              />
             </div>
-          )}
-
-          {/* Main content */}
-          <div className="flex-1">
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h1 className="text-2xl md:text-3xl font-bold">Token List</h1>
-                <div className="flex items-center gap-3">
-                  <SearchInput 
-                    value={searchText}
-                    onChange={setSearchText}
-                    placeholder="Search tokens..."
-                    className="w-full sm:w-auto"
-                  />
-                  <ChainSelector />
-                </div>
+            
+            <div className="flex-1 flex flex-col sm:flex-row gap-4">
+              <div className="w-full sm:w-1/2">
+                <ProtocolFilter 
+                  protocols={protocols} 
+                  selected={selectedProtocolId}
+                  onChange={setSelectedProtocol}
+                />
+              </div>
+              <div className="w-full sm:w-1/2">
+                <BuildingBlockFilter 
+                  buildingBlocks={Object.values(BuildingBlock)}
+                  selected={selectedBuildingBlock}
+                  onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
+                  isLoading={isLoading}
+                />
               </div>
             </div>
-
-            {/* Token list grid - responsive layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tokens.map((token) => (
-                <TokenCard key={`${token.chainId}-${token.address}`} token={token} />
-              ))}
-            </div>
-
-            {/* Empty state with illustration */}
-            {tokens.length === 0 && (
-              <div className="text-center py-10">
-                <div className="mb-4">
-                  <img 
-                    src="/empty-state.svg" 
-                    alt="No tokens found" 
-                    className="w-48 h-48 mx-auto opacity-60"
-                  />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">No tokens found</h3>
-                <p className="text-[#B8BCD8] max-w-md mx-auto">
-                  Try adjusting your search or filter criteria to find what you're looking for.
-                </p>
-              </div>
+            
+            {(selectedProtocolId !== null || selectedBuildingBlock !== null || searchText.trim() !== '') && (
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded-md"
+                onClick={resetFilters}
+              >
+                Reset
+              </button>
             )}
           </div>
-        </div>
+        )}
+        
+        {/* Loading state */}
+        <Transition
+          show={showSkeletons}
+          enter="transition-opacity duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="transition-opacity duration-300"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+          as={Fragment}
+        >
+          <div>
+            <div className="flex justify-center items-center mb-6">
+              <LoadingSpinner />
+              <p className="ml-3 text-gray-600 dark:text-gray-300">
+                Loading tokens for {getChainName(selectedChain)}...
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <SkeletonCard key={`skeleton-${index}`} opacity={1} />
+              ))}
+            </div>
+          </div>
+        </Transition>
+        
+        {/* Error state */}
+        {!showSkeletons && error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 my-6">
+            <p className="text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+        
+        {/* No results state */}
+        {!showSkeletons && !error && filteredTokens.length === 0 && tokens.length > 0 && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 my-6">
+            <p className="text-yellow-700 dark:text-yellow-300">
+              No tokens match the selected filters.
+            </p>
+            <button
+              onClick={resetFilters}
+              className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Reset filters
+            </button>
+          </div>
+        )}
+        
+        {/* Token grid */}
+        {!showSkeletons && !error && (
+          <Suspense fallback={<div>Loading...</div>}>
+            <Transition
+              show={!showSkeletons}
+              enter="transition-opacity duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="transition-opacity duration-300"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+              as={Fragment}
+            >
+              <div className={isMobile ? 'mb-24' : ''}>
+                <TokenGrid 
+                  tokens={filteredTokens} 
+                  protocols={protocols} 
+                  chainId={selectedChain}
+                  isMobile={isMobile}
+                />
+                
+                {filteredTokens.length > 0 && (
+                  <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Showing {filteredTokens.length} tokens out of {tokens.length} available for {getChainName(selectedChain)}
+                  </div>
+                )}
+              </div>
+            </Transition>
+          </Suspense>
+        )}
+        
+        {/* Mobile Bottom Filter Toolbar */}
+        {isMobile && (
+          <MobileFilterToolbar />
+        )}
       </div>
-      
-      {/* Filters component - only rendered in mobile view */}
-      {isMobile && <Filters />}
     </main>
   );
 }
