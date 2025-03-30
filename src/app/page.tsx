@@ -15,6 +15,7 @@ import BuildingBlockFilter from './components/BuildingBlockFilter';
 import SearchInput from './components/SearchInput';
 import { Transition } from '@headlessui/react';
 import { BuildingBlock } from '@factordao/tokenlist';
+import { useWindowSize } from '@/app/hooks/useWindowSize';
 
 export default function Home() {
   // We use the Context to access the app's global state
@@ -36,6 +37,9 @@ export default function Home() {
     changeChain
   } = useAppContext();
 
+  const { width } = useWindowSize();
+  const isMobile = width ? width < 768 : false;
+
   // Determine if there are active filters
   const hasActiveFilters = searchText.trim() !== '' || 
     selectedProtocolId !== null || 
@@ -45,166 +49,62 @@ export default function Home() {
   const showSkeletons = isLoading || isChangingChain;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 pb-8">
-        {/* Chain selector moved to the sticky filter section */}
-        
-        {/* Sticky filters section */}
-        <div className="sticky top-0 z-10 pt-4 pb-2 bg-gray-50 dark:bg-gray-900">
-          {SUPPORTED_CHAIN_IDS.length > 1 && (
-            <div className="mb-4 flex justify-end">
-              <ChainSelector 
-                selectedChain={selectedChain} 
-                onChainChange={changeChain} 
-              />
+    <main className="min-h-screen p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Sidebar filters - hidden on mobile */}
+          {!isMobile && (
+            <div className="w-full md:w-64 shrink-0">
+              <Filters />
             </div>
           )}
-          
-          <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Search
-                </label>
-                <SearchInput 
-                  value={searchText} 
-                  onChange={setSearchText} 
-                  placeholder="Name, symbol or address..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Protocol
-                </label>
-                <ProtocolFilter 
-                  protocols={protocols} 
-                  selected={selectedProtocolId}
-                  onChange={setSelectedProtocol}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Action
-                </label>
-                <BuildingBlockFilter 
-                  buildingBlocks={Object.values(BuildingBlock)}
-                  selected={selectedBuildingBlock}
-                  onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
-                  isLoading={isLoading}
-                />
+
+          {/* Main content */}
+          <div className="flex-1">
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h1 className="text-2xl md:text-3xl font-bold">Token List</h1>
+                <div className="flex items-center gap-3">
+                  <SearchInput 
+                    value={searchText}
+                    onChange={setSearchText}
+                    placeholder="Search tokens..."
+                    className="w-full sm:w-auto"
+                  />
+                  <ChainSelector />
+                </div>
               </div>
             </div>
-            
-            {hasActiveFilters && (
-              <div className="mt-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  {filteredTokens.length} results found
+
+            {/* Token list grid - responsive layout */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tokens.map((token) => (
+                <TokenCard key={`${token.chainId}-${token.address}`} token={token} />
+              ))}
+            </div>
+
+            {/* Empty state with illustration */}
+            {tokens.length === 0 && (
+              <div className="text-center py-10">
+                <div className="mb-4">
+                  <img 
+                    src="/empty-state.svg" 
+                    alt="No tokens found" 
+                    className="w-48 h-48 mx-auto opacity-60"
+                  />
                 </div>
-                <button
-                  onClick={resetFilters}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  aria-label="Reset all filters"
-                >
-                  Reset filters
-                </button>
+                <h3 className="text-xl font-semibold mb-2">No tokens found</h3>
+                <p className="text-[#B8BCD8] max-w-md mx-auto">
+                  Try adjusting your search or filter criteria to find what you're looking for.
+                </p>
               </div>
             )}
           </div>
-        
-          {SUPPORTED_CHAIN_IDS.length > 1 && (
-            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-              <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                You are viewing tokens on <span className="font-medium mx-1">{getChainName(selectedChain)}</span>
-              </p>
-            </div>
-          )}
         </div>
-        
-        {/* Loading state */}
-        <Transition
-          show={showSkeletons}
-          enter="transition-opacity duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition-opacity duration-300"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-          as={Fragment}
-        >
-          <div>
-            <div className="flex justify-center items-center mb-6">
-              <LoadingSpinner />
-              <p className="ml-3 text-gray-600 dark:text-gray-300">
-                Loading tokens for {getChainName(selectedChain)}...
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {Array.from({ length: 12 }).map((_, index) => (
-                <SkeletonCard key={`skeleton-${index}`} opacity={1} />
-              ))}
-            </div>
-          </div>
-        </Transition>
-        
-        {/* Error state */}
-        {!showSkeletons && error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 my-6">
-            <p className="text-red-700 dark:text-red-300">{error}</p>
-          </div>
-        )}
-        
-        {/* No results state */}
-        {!showSkeletons && !error && filteredTokens.length === 0 && tokens.length > 0 && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 my-6">
-            <p className="text-yellow-700 dark:text-yellow-300">
-              No tokens match the selected filters.
-            </p>
-            <button
-              onClick={resetFilters}
-              className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Reset filters
-            </button>
-          </div>
-        )}
-        
-        {/* Token grid */}
-        {!showSkeletons && !error && (
-          <Suspense fallback={<div>Loading...</div>}>
-            <Transition
-              show={!showSkeletons}
-              enter="transition-opacity duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="transition-opacity duration-300"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-              as={Fragment}
-            >
-              <div>
-                <TokenGrid 
-                  tokens={filteredTokens} 
-                  protocols={protocols} 
-                  chainId={selectedChain}
-                />
-                
-                {filteredTokens.length > 0 && (
-                  <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Showing {filteredTokens.length} tokens out of {tokens.length} available for {getChainName(selectedChain)}
-                  </div>
-                )}
-              </div>
-            </Transition>
-          </Suspense>
-        )}
       </div>
+      
+      {/* Filters component - only rendered in mobile view */}
+      {isMobile && <Filters />}
     </main>
   );
 }

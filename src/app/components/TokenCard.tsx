@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getExplorerUrl } from '../lib/chains';
 import { useAppContext } from '../context/AppContext';
+import { useWindowSize } from '@/app/hooks/useWindowSize';
 
 // Map of building blocks with their readable names
 const BUILDING_BLOCK_NAMES: Partial<Record<BuildingBlock, string>> = {
@@ -35,6 +36,8 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
   const [isHovered, setIsHovered] = useState(false);
   const { state } = useAppContext();
   const { selectedChain } = state;
+  const { width } = useWindowSize();
+  const isMobile = width ? width < 768 : false;
   
   // Check if the token has tags and building blocks
   const hasTags = token.tags && token.tags.length > 0;
@@ -56,131 +59,126 @@ export default function TokenCard({ token, isSelected = false, onClick }: TokenC
     }
   };
 
+  // Function to copy address to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        // You could add a toast notification here
+        console.log('Address copied to clipboard');
+      })
+      .catch((err) => {
+        console.error('Failed to copy address: ', err);
+      });
+  };
+
   return (
     <div
-      className={`rounded-lg overflow-hidden border transition-all duration-200 ${
-        isSelected
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-700'
-      } ${onClick ? 'cursor-pointer' : ''}`}
-      onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={`bg-[#2C3156] rounded-lg p-4 transition-all duration-300 
+        ${isMobile ? 'w-full' : 'max-w-sm'} 
+        hover:shadow-lg hover:shadow-[#4A5387]/30 hover:scale-[1.02] h-full flex flex-col`}
     >
-      <div className="p-4">
-        {/* Card header with token image and symbol */}
-        <div className="flex items-center mb-3">
+      <div className="flex items-center mb-4">
+        <div className="flex items-center mr-4">
           <TokenImage
-            src={token.logoURI}
-            alt={token.symbol}
+            chainId={token.chainId}
             address={token.address}
-            size={32}
-            className="mr-3"
+            symbol={token.symbol}
+            width={isMobile ? 36 : 32}
+            height={isMobile ? 36 : 32}
           />
+          <div className="ml-3">
+            <div className={`font-medium ${isMobile ? 'text-lg' : 'text-md'}`}>{symbol}</div>
+            <div className="text-[#B8BCD8] text-sm truncate max-w-[140px]">{name}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 mb-4 space-y-2">
+        {/* Building Blocks */}
+        {buildingBlocks.length > 0 && (
           <div>
-            <h3 className="font-medium text-gray-900 dark:text-white">
-              {symbol}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {name}
-            </p>
-          </div>
-        </div>
-
-        {/* Token chain and address details */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              Chain
-            </span>
-            <span className="text-xs font-medium text-gray-900 dark:text-white">
-              {token.chainId}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              Address
-            </span>
-            <a 
-              href={getExplorerUrl(selectedChain, token.address)}
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-xs font-mono text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 truncate max-w-[180px]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {token.address}
-            </a>
-          </div>
-        </div>
-
-        {/* Token protocols */}
-        {protocols.length > 0 && (
-          <div className="mb-3">
-            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Protocols
-            </h4>
-            <div className="flex flex-wrap gap-1">
-              {protocols.map((protocol) => (
-                <span
-                  key={protocol}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
-                >
-                  {getProtocolLabel(protocol)}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Token building blocks */}
-        {hasBuildingBlocks && (
-          <div className="mb-3">
-            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Actions
-            </h4>
-            <div className="flex flex-wrap gap-1">
+            <div className="text-[#B8BCD8] text-xs mb-1">Building Blocks</div>
+            <div className="flex flex-wrap gap-2">
               {buildingBlocks.map((block) => (
                 <span
                   key={block}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+                  ${isMobile ? 'text-sm py-1.5' : 'text-xs py-1'} 
+                  bg-[#4A5387] text-white`}
                 >
-                  {BUILDING_BLOCK_NAMES[block as BuildingBlock] || block}
+                  {block}
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Token tags */}
-        {hasTags && (
+        {/* Protocols */}
+        {protocols.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Tags
-            </h4>
-            <div className="flex flex-wrap gap-1">
-              {token.tags?.map((tag) => (
+            <div className="text-[#B8BCD8] text-xs mb-1">Protocols</div>
+            <div className="flex flex-wrap gap-2">
+              {protocols.map((protocol) => (
                 <span
-                  key={tag}
-                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                  key={protocol}
+                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+                  ${isMobile ? 'text-sm py-1.5' : 'text-xs py-1'} 
+                  bg-[#4A5387] text-white`}
                 >
-                  {tag}
+                  {protocol}
                 </span>
               ))}
             </div>
           </div>
         )}
+      </div>
 
-        {/* Block Explorer Link */}
-        {explorerLink && (
-          <Link 
-            href={explorerLink} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-2"
+      <div className="mt-auto pt-3 border-t border-[#4A5387] flex justify-between items-center">
+        <button
+          onClick={() => copyToClipboard(token.address)}
+          className="text-[#B8BCD8] hover:text-white text-xs flex items-center"
+        >
+          <span className={`truncate ${isMobile ? 'max-w-[120px]' : 'max-w-[100px]'}`}>{token.address}</span>
+          <span className="ml-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+          </span>
+        </button>
+        
+        <a
+          href={explorerLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-white bg-[#4A5387] ${isMobile ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-xs'} rounded flex items-center hover:bg-[#5A63A7]`}
+        >
+          <span>View in Explorer</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-3 w-3 ml-1"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            View on Block Explorer
-          </Link>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
+          </svg>
+        </a>
       </div>
     </div>
   );

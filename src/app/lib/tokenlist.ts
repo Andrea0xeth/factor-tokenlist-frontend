@@ -326,15 +326,10 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   // Get Pro Vaults for Arbitrum - special handling as they need initialization
   if (chainId === ChainId.ARBITRUM_ONE) {
     try {
-      // Ensure Pro Vaults are initialized
-      if (!initializedProVaults[chainId]) {
-        console.log('🏦 Initializing Pro Vaults for Arbitrum...');
-        await tokenlist.initializeProVaultsTokens();
-        initializedProVaults[chainId] = true;
-      }
-      
       console.log('🏦 Getting Pro Vault tokens...');
-      const proVaultTokens = await tokenlist.getAllProVaultsTokens() as unknown as ProVaultToken[];
+      
+      // Use subgraph API to fetch Pro Vaults
+      const proVaultTokens = await fetchProVaultsFromSubgraph();
       
       if (proVaultTokens && proVaultTokens.length > 0) {
         // Process Pro Vault tokens to match our format
@@ -346,7 +341,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
           chainId: chainId,
           protocols: ['pro-vaults'],
           buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
-          logoURI: vault.logoURI,
+          logoURI: vault.logoURI || `/icons/protocols/pro-vaults.png`,
           vaultAddress: vault.vaultAddress,
           extensions: {
             protocols: ['pro-vaults'],
@@ -362,9 +357,54 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
         }));
         
         allTokens = [...allTokens, ...processedProVaultTokens];
-        console.log(`🏦 Added ${processedProVaultTokens.length} Pro Vault tokens`);
+        console.log(`🏦 Added ${processedProVaultTokens.length} Pro Vault tokens from subgraph`);
       } else {
-        console.log('🏦 No Pro Vault tokens found');
+        console.log('🏦 No Pro Vault tokens found from subgraph');
+        
+        // Fallback to tokenlist method if subgraph fails
+        try {
+          // Ensure Pro Vaults are initialized
+          if (!initializedProVaults[chainId]) {
+            console.log('🏦 Initializing Pro Vaults for Arbitrum (fallback)...');
+            await tokenlist.initializeProVaultsTokens();
+            initializedProVaults[chainId] = true;
+          }
+          
+          const tokenlistProVaults = await tokenlist.getAllProVaultsTokens() as unknown as ProVaultToken[];
+          
+          if (tokenlistProVaults && tokenlistProVaults.length > 0) {
+            // Process Pro Vault tokens to match our format
+            const processedProVaultTokens = tokenlistProVaults.map((vault: ProVaultToken) => ({
+              address: vault.vaultAddress,
+              name: vault.name,
+              symbol: vault.symbol,
+              decimals: vault.decimals || 18,
+              chainId: chainId,
+              protocols: ['pro-vaults'],
+              buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+              logoURI: vault.logoURI || `/icons/protocols/pro-vaults.png`,
+              vaultAddress: vault.vaultAddress,
+              extensions: {
+                protocols: ['pro-vaults'],
+                buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+                vaultInfo: {
+                  vaultAddress: vault.vaultAddress,
+                  strategyAddress: vault.strategyAddress,
+                  depositToken: vault.depositToken,
+                  apy: vault.apy,
+                  deprecated: vault.deprecated
+                }
+              }
+            }));
+            
+            allTokens = [...allTokens, ...processedProVaultTokens];
+            console.log(`🏦 Added ${processedProVaultTokens.length} Pro Vault tokens from tokenlist fallback`);
+          } else {
+            console.log('🏦 No Pro Vault tokens found from tokenlist fallback');
+          }
+        } catch (fallbackError) {
+          console.warn('🚨 Failed to load Pro Vault tokens from fallback:', fallbackError);
+        }
       }
     } catch (error) {
       console.warn('🚨 Failed to load Pro Vault tokens:', error);
@@ -776,4 +816,76 @@ export function filterProtocolsByChain(protocols: Protocol[], chainId: number): 
   const filtered = protocols.filter(p => !p.chainId || p.chainId === chainId);
   console.log(`Filtered protocols for chain ${chainId}:`, filtered.map(p => p.id).join(', '));
   return filtered;
+}
+
+// Function to fetch Pro Vaults from the subgraph API
+async function fetchProVaultsFromSubgraph(): Promise<ProVaultToken[]> {
+  try {
+    console.log('🌐 Fetching Pro Vaults from subgraph API...');
+    
+    // The subgraph endpoint for Pro Vaults on Arbitrum
+    const subgraphEndpoint = 'https://api.thegraph.com/subgraphs/name/factor-fi/pro-vaults-v1-arbitrum';
+    
+    // GraphQL query to fetch all Pro Vaults
+    const query = `
+      {
+        vaults {
+          id
+          name
+          symbol
+          decimals
+          strategy {
+            id
+          }
+          depositToken {
+            id
+            name
+            symbol
+            decimals
+          }
+          totalDeposited
+          totalShares
+          apy
+          deprecated
+        }
+      }
+    `;
+    
+    const response = await fetch(subgraphEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Subgraph request failed: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.errors) {
+      throw new Error(`Subgraph errors: ${JSON.stringify(data.errors)}`);
+    }
+    
+    // Transform the subgraph data into ProVaultToken format
+    const proVaults: ProVaultToken[] = data.data.vaults.map((vault: any) => ({
+      vaultAddress: vault.id,
+      name: vault.name,
+      symbol: vault.symbol,
+      decimals: parseInt(vault.decimals, 10),
+      strategyAddress: vault.strategy?.id,
+      depositToken: vault.depositToken?.id,
+      apy: parseFloat(vault.apy || '0'),
+      deprecated: vault.deprecated || false,
+      logoURI: `/icons/protocols/pro-vaults.png`,
+    }));
+    
+    console.log(`✅ Fetched ${proVaults.length} Pro Vaults from subgraph`);
+    return proVaults;
+  } catch (error) {
+    console.error('❌ Error fetching Pro Vaults from subgraph:', error);
+    return [];
+  }
 }
