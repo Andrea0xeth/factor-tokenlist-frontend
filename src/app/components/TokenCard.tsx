@@ -31,35 +31,33 @@ interface TokenCardProps {
  * Card component that displays a token with its information
  */
 export default function TokenCard({ token, isMobile = false }: TokenCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const { state } = useAppContext();
   const { selectedChain } = state;
-  
-  // Check if the token has tags and building blocks
-  const hasTags = token.tags && token.tags.length > 0;
-  const hasBuildingBlocks = token.extensions?.buildingBlocks && token.extensions.buildingBlocks.length > 0;
   
   // Extract token details
   const symbol = token.symbol || '';
   const name = token.name || '';
   const protocols = token.extensions?.protocols || [];
-  const buildingBlocks = token.extensions?.buildingBlocks || [];
+  
+  // Check if it's a Pro Vault
+  const isProVault = protocols.includes('pro-vaults');
+  
+  // Get APY if available in extensions
+  const apy = token.extensions?.vaultInfo?.apy;
   
   // Get the correct explorer URL for the selected chain
   const explorerLink = getExplorerUrl(selectedChain, token.address);
-  
-  // Handle click event
-  const handleClick = () => {
-    if (onClick) {
-      onClick(token);
-    }
-  };
 
   return (
     <div className={`group rounded-xl overflow-hidden border border-zinc-800 transition-all duration-300 ${isMobile ? 'shadow-md hover:shadow-lg' : 'hover:border-zinc-600'}`}>
       <div className="flex items-center p-4 space-x-3">
         <div className={`relative ${isMobile ? 'w-12 h-12' : 'w-10 h-10'}`}>
-          <TokenImage token={token} />
+          <TokenImage 
+            src={token.logoURI}
+            alt={token.symbol || 'Token'}
+            address={token.address}
+            size={isMobile ? 48 : 40}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
@@ -93,27 +91,18 @@ export default function TokenCard({ token, isMobile = false }: TokenCardProps) {
           </div>
         )}
 
-        <div className={`mt-3 grid grid-cols-2 gap-2 ${isMobile ? 'text-sm' : 'text-xs'}`}>
-          {/* APY display */}
-          {apy !== undefined && (
+        {/* Only show metrics section if we have APY */}
+        {apy !== undefined && (
+          <div className={`mt-3 grid grid-cols-1 gap-2 ${isMobile ? 'text-sm' : 'text-xs'}`}>
+            {/* APY display */}
             <div className="bg-zinc-800 rounded p-2">
               <span className="text-zinc-400">APY</span>
               <div className={`font-semibold text-green-400 ${isMobile ? 'text-lg' : ''}`}>
                 {apy}%
               </div>
             </div>
-          )}
-
-          {/* TVL display */}
-          {tvl !== undefined && (
-            <div className="bg-zinc-800 rounded p-2">
-              <span className="text-zinc-400">TVL</span>
-              <div className={`font-semibold text-white ${isMobile ? 'text-lg' : ''}`}>
-                {tvl}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Card actions */}
         <div className={`mt-3 flex space-x-2 ${isMobile ? 'pt-2' : ''}`}>

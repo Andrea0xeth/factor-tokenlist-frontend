@@ -599,10 +599,10 @@ export async function getAllProtocols(chainId: number = ChainId.ARBITRUM_ONE): P
       const proVaultsTokens = tokenlist.getAllProVaultsTokens?.() || [];
       const processedTokens = proVaultsTokens.map(token => ({
         ...token,
-        protocols: [...(token.protocols || []), 'pro-vaults'],
+        protocols: [...((token as any).protocols || []), 'pro-vaults'],
         extensions: {
-          ...(token.extensions || {}),
-          protocols: [...(token.extensions?.protocols || []), 'pro-vaults']
+          ...((token as any).extensions || {}),
+          protocols: [...((token as any).extensions?.protocols || []), 'pro-vaults']
         }
       }));
       
