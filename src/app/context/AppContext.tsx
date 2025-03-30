@@ -221,27 +221,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let matchesProtocol = !selectedProtocolId;
       
       if (selectedProtocolId) {
-        // Debug log for protocol filtering
-        if (process.env.NODE_ENV === 'development' && token.protocols && token.protocols.length > 0) {
-          console.log(`Token ${token.symbol} has protocols:`, token.protocols);
-        }
-        
-        // Check direct protocols property
-        if (token.protocols && Array.isArray(token.protocols)) {
-          if (token.protocols.some(p => 
-              typeof p === 'string' && 
-              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
-            matchesProtocol = true;
-          }
-        }
-        
-        // Check extensions.protocols property
-        if (!matchesProtocol && token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
-          if (token.extensions.protocols.some(p => 
-              typeof p === 'string' && 
-              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
-            matchesProtocol = true;
-          }
+        // Special handling for Pro Vaults
+        if (selectedProtocolId === 'pro-vaults') {
+          // Check token.protocols array
+          if (token.protocols?.includes('pro-vaults')) matchesProtocol = true;
+          
+          // Check token.extensions.protocols array
+          if (token.extensions?.protocols?.includes('pro-vaults')) matchesProtocol = true;
+          
+          // Check if token is a Pro Vault by address format/schema
+          if (token.vaultAddress) matchesProtocol = true;
+          
+          // Check token extensions for vault info
+          if (token.extensions?.vaultInfo?.vaultAddress) matchesProtocol = true;
+        } else {
+          // For other protocols, check both token.protocols and token.extensions?.protocols
+          matchesProtocol = (
+            token.protocols?.includes(selectedProtocolId) ||
+            token.extensions?.protocols?.includes(selectedProtocolId)
+          );
         }
       }
 

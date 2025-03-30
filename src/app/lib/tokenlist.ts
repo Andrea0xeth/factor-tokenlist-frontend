@@ -65,6 +65,75 @@ async function getTokenlistInstance(chainId: number): Promise<FactorTokenlist> {
   return instance;
 }
 
+/**
+ * Fetches Pro Vaults data directly from the Arbitrum subgraph
+ * This serves as a fallback if the tokenlist package method fails
+ */
+async function fetchProVaultsFromSubgraph(): Promise<any[]> {
+  try {
+    console.log('📊 Attempting direct subgraph query for Pro Vaults...');
+    
+    const endpoint = 'https://api.thegraph.com/subgraphs/name/factor-fi/pro-vaults';
+    const query = `
+      {
+        vaults {
+          address
+          name
+          symbol
+          decimals
+          totalSupply
+          totalTVL
+          depositToken {
+            address
+            name
+            symbol
+            decimals
+          }
+          strategy {
+            address
+          }
+          apy
+          deprecated
+        }
+      }
+    `;
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.errors) {
+      throw new Error(result.errors.map((e: any) => e.message).join(', '));
+    }
+    
+    console.log(`📊 Direct subgraph query successful! Found ${result.data?.vaults?.length || 0} vaults`);
+    
+    // Transform the data to match the expected format
+    return (result.data?.vaults || []).map((vault: any) => ({
+      vaultAddress: vault.address,
+      name: vault.name,
+      symbol: vault.symbol,
+      decimals: parseInt(vault.decimals || '18'),
+      depositToken: vault.depositToken?.address,
+      strategyAddress: vault.strategy?.address,
+      apy: parseFloat(vault.apy || '0'),
+      deprecated: Boolean(vault.deprecated),
+      logoURI: 'https://factor.fi/assets/protocols/pro-vaults.svg'
+    }));
+  } catch (error) {
+    console.error('📊 Direct subgraph query failed:', error);
+    return [];
+  }
+}
+
 // Function to get all available tokens
 export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Promise<Token[]> {
   console.log(`🔍 Requesting tokens for chain: ${chainId}...`);
@@ -326,20 +395,45 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
   // Get Pro Vaults for Arbitrum - special handling as they need initialization
   if (chainId === ChainId.ARBITRUM_ONE) {
     try {
+      console.log('🏦 DEBUG: Starting Pro Vaults fetch process for Arbitrum...');
+      console.log('🏦 DEBUG: Available methods on tokenlist:', 
+        Object.getOwnPropertyNames(Object.getPrototypeOf(tokenlist))
+          .filter(method => 
+            method.includes('Pro') || 
+            method.includes('pro') || 
+            method.includes('Vault') || 
+            method.includes('vault')
+          )
+      );
+      
       // Always ensure Pro Vaults are initialized
-      console.log('🏦 Initializing Pro Vaults for Arbitrum...');
+      console.log('🏦 Step 1: Initializing Pro Vaults for Arbitrum...');
       await tokenlist.initializeProVaultsTokens();
       initializedProVaults[chainId] = true;
       
-      console.log('🏦 Getting Pro Vault tokens...');
+      console.log('🏦 Step 2: Getting Pro Vault tokens...');
       // Force a fresh initialization to ensure we have the latest data from subgraph
       await tokenlist.initializeProVaultsTokens();
       
       // Try to retrieve Pro Vault tokens
-      const proVaultTokens = await tokenlist.getAllProVaultsTokens() as any[];
+      console.log('🏦 Step 3: Calling getAllProVaultsTokens()...');
+      let proVaultTokens = await tokenlist.getAllProVaultsTokens() as any[];
+      console.log('🏦 DEBUG: Retrieved Pro Vault tokens raw data:', 
+        proVaultTokens ? 
+        `Found ${proVaultTokens.length} tokens` : 
+        'No tokens returned (null or empty array)'
+      );
+      
+      // If no tokens were found using the package method, try direct subgraph query
+      if (!proVaultTokens || proVaultTokens.length === 0) {
+        console.log('🏦 No Pro Vault tokens found via tokenlist package, trying direct subgraph query...');
+        proVaultTokens = await fetchProVaultsFromSubgraph();
+        console.log(`🏦 Direct subgraph query result: ${proVaultTokens.length} tokens found`);
+      }
       
       if (proVaultTokens && proVaultTokens.length > 0) {
-        console.log(`🏦 Found ${proVaultTokens.length} Pro Vault tokens from subgraph API`);
+        console.log(`🏦 Success: Found ${proVaultTokens.length} Pro Vault tokens`);
+        console.log('🏦 Sample token data (first token):', JSON.stringify(proVaultTokens[0], null, 2));
         
         // Process Pro Vault tokens to match our format and ensure proper protocol tagging
         const processedProVaultTokens = proVaultTokens.map((vault: any) => {
@@ -352,7 +446,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
             chainId: chainId,
             protocols: ['pro-vaults'],
             buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
-            logoURI: vault.logoURI,
+            logoURI: vault.logoURI || 'https://factor.fi/assets/protocols/pro-vaults.svg',
             vaultAddress: vault.vaultAddress,
             extensions: {
               protocols: ['pro-vaults'],
@@ -373,7 +467,7 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
         allTokens = [...allTokens, ...processedProVaultTokens];
         console.log(`🏦 Added ${processedProVaultTokens.length} tagged Pro Vault tokens to the token list`);
       } else {
-        console.log('🏦 Warning: No Pro Vault tokens found from subgraph API');
+        console.log('🏦 Warning: No Pro Vault tokens found from either method');
         
         // If we don't have any tokens from the API, add a dummy token to ensure the protocol is visible
         if (!allTokens.some(token => token.protocols?.includes('pro-vaults'))) {
@@ -405,9 +499,48 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
     } catch (error) {
       console.warn('🚨 Failed to load Pro Vault tokens:', error);
       
+      // Try direct subgraph query as a last resort
+      try {
+        console.log('🏦 Attempting direct subgraph query after tokenlist method failure...');
+        const proVaultTokens = await fetchProVaultsFromSubgraph();
+        
+        if (proVaultTokens && proVaultTokens.length > 0) {
+          console.log(`🏦 Recovered ${proVaultTokens.length} Pro Vault tokens from direct subgraph query`);
+          
+          const processedProVaultTokens = proVaultTokens.map((vault: any) => ({
+            address: vault.vaultAddress,
+            name: vault.name,
+            symbol: vault.symbol,
+            decimals: vault.decimals || 18,
+            chainId: chainId,
+            protocols: ['pro-vaults'],
+            buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+            logoURI: vault.logoURI || 'https://factor.fi/assets/protocols/pro-vaults.svg',
+            vaultAddress: vault.vaultAddress,
+            extensions: {
+              protocols: ['pro-vaults'],
+              buildingBlocks: [BuildingBlock.DEPOSIT, BuildingBlock.WITHDRAW],
+              vaultInfo: {
+                vaultAddress: vault.vaultAddress,
+                strategyAddress: vault.strategyAddress,
+                depositToken: vault.depositToken,
+                apy: vault.apy,
+                deprecated: vault.deprecated
+              }
+            }
+          }));
+          
+          allTokens = [...allTokens, ...processedProVaultTokens];
+          console.log(`🏦 Added ${processedProVaultTokens.length} recovered Pro Vault tokens to the token list`);
+          return allTokens;
+        }
+      } catch (subgraphError) {
+        console.error('🚨 Direct subgraph query also failed:', subgraphError);
+      }
+      
       // Even on error, ensure we have at least one token with the pro-vaults protocol
       if (!allTokens.some(token => token.protocols?.includes('pro-vaults'))) {
-        console.log('🏦 Adding dummy Pro Vault token after error to ensure the protocol is visible');
+        console.log('🏦 Adding dummy Pro Vault token after all methods failed');
         const dummyToken = {
           address: '0x0000000000000000000000000000000000000000',
           name: 'Pro Vaults',
