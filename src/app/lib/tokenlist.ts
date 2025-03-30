@@ -391,7 +391,40 @@ function convertToken(token: any, chainId: number): Token {
   const buildingBlocks = token.extensions?.buildingBlocks || token.buildingBlocks || [];
   
   // Check if we have protocols in extensions or directly in the token
-  const protocols = token.extensions?.protocols || token.protocols || [];
+  let protocols: any[] = [];
+  
+  // Collect protocols from both locations, ensuring no duplicates
+  if (token.protocols) {
+    if (typeof token.protocols === 'string') {
+      protocols.push(token.protocols.toLowerCase());
+    } else if (Array.isArray(token.protocols)) {
+      protocols = [...protocols, ...token.protocols.map((p: string) => 
+        typeof p === 'string' ? p.toLowerCase() : p)];
+    }
+  }
+  
+  if (token.extensions?.protocols) {
+    if (typeof token.extensions.protocols === 'string') {
+      const protocolStr = token.extensions.protocols.toLowerCase();
+      if (!protocols.includes(protocolStr)) {
+        protocols.push(protocolStr);
+      }
+    } else if (Array.isArray(token.extensions.protocols)) {
+      token.extensions.protocols.forEach((p: string) => {
+        if (typeof p === 'string') {
+          const protocolStr = p.toLowerCase();
+          if (!protocols.includes(protocolStr)) {
+            protocols.push(protocolStr);
+          }
+        }
+      });
+    }
+  }
+  
+  // For debugging
+  if (protocols.length > 0) {
+    console.log(`Converting token ${token.symbol} with protocols:`, protocols);
+  }
   
   return {
     address: token.address,
@@ -401,13 +434,13 @@ function convertToken(token: any, chainId: number): Token {
     decimals: token.decimals || 18,
     logoURI: token.logoURI || `/icons/tokens/${token.symbol?.toUpperCase()}.png`,
     tags: token.tags || [],
-    protocols: protocols,
-    buildingBlocks: buildingBlocks,
+    protocols,
+    buildingBlocks,
     ...(token.vaultAddress && { vaultAddress: token.vaultAddress }),
     extensions: {
       ...(token.extensions || {}),
-      protocols: protocols,
-      buildingBlocks: buildingBlocks
+      protocols,
+      buildingBlocks
     }
   };
 }

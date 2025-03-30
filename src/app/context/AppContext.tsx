@@ -218,16 +218,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
 
       // Protocol filter
-      const matchesProtocol = !selectedProtocolId || (
-        (token.protocols && token.protocols.includes(selectedProtocolId)) || 
-        (token.extensions?.protocols && token.extensions.protocols.includes(selectedProtocolId))
-      );
+      let matchesProtocol = !selectedProtocolId;
+      
+      if (selectedProtocolId) {
+        // Debug log for protocol filtering
+        if (process.env.NODE_ENV === 'development' && token.protocols && token.protocols.length > 0) {
+          console.log(`Token ${token.symbol} has protocols:`, token.protocols);
+        }
+        
+        // Check direct protocols property
+        if (token.protocols && Array.isArray(token.protocols)) {
+          if (token.protocols.some(p => 
+              typeof p === 'string' && 
+              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
+            matchesProtocol = true;
+          }
+        }
+        
+        // Check extensions.protocols property
+        if (!matchesProtocol && token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
+          if (token.extensions.protocols.some(p => 
+              typeof p === 'string' && 
+              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
+            matchesProtocol = true;
+          }
+        }
+      }
 
-      // Building block filter  
-      const matchesBuildingBlock = !selectedBuildingBlock || (
-        (token.buildingBlocks && token.buildingBlocks.includes(selectedBuildingBlock)) ||
-        (token.extensions?.buildingBlocks && token.extensions.buildingBlocks.includes(selectedBuildingBlock))
-      );
+      // Building block filter
+      let matchesBuildingBlock = !selectedBuildingBlock;
+      
+      if (selectedBuildingBlock) {
+        // Check direct buildingBlocks property
+        if (token.buildingBlocks && Array.isArray(token.buildingBlocks)) {
+          if (token.buildingBlocks.includes(selectedBuildingBlock)) {
+            matchesBuildingBlock = true;
+          }
+        }
+        
+        // Check extensions.buildingBlocks property
+        if (!matchesBuildingBlock && token.extensions?.buildingBlocks && Array.isArray(token.extensions.buildingBlocks)) {
+          if (token.extensions.buildingBlocks.includes(selectedBuildingBlock)) {
+            matchesBuildingBlock = true;
+          }
+        }
+      }
+
+      // Debug log for token that matches protocol filter
+      if (process.env.NODE_ENV === 'development' && selectedProtocolId && matchesProtocol) {
+        console.log(`Token ${token.symbol} matches protocol ${selectedProtocolId}`);
+      }
 
       return matchesSearch && matchesProtocol && matchesBuildingBlock;
     });
