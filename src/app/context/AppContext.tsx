@@ -204,7 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const searchLower = searchText.toLowerCase().trim();
 
     // Defensive filtering with null checks
-    const filtered = state.tokens.filter(token => {
+    let filtered = state.tokens.filter(token => {
       // Skip tokens with undefined properties
       if (!token || !token.name || !token.symbol || !token.address) {
         return false;
@@ -217,58 +217,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
         token.address.toLowerCase().includes(searchLower)
       );
 
-      // Protocol filter
-      let matchesProtocol = !selectedProtocolId;
-      
-      if (selectedProtocolId) {
-        // Special handling for Pro Vaults
-        if (selectedProtocolId === 'pro-vaults') {
-          // Check token.protocols array
-          if (token.protocols?.includes('pro-vaults')) matchesProtocol = true;
-          
-          // Check token.extensions.protocols array
-          if (token.extensions?.protocols?.includes('pro-vaults')) matchesProtocol = true;
-          
-          // Check if token is a Pro Vault by address format/schema
-          if (token.vaultAddress) matchesProtocol = true;
-          
-          // Check token extensions for vault info
-          if (token.extensions?.vaultInfo?.vaultAddress) matchesProtocol = true;
-        } else {
-          // For other protocols, check both token.protocols and token.extensions?.protocols
-          matchesProtocol = (
-            token.protocols?.includes(selectedProtocolId) ||
-            token.extensions?.protocols?.includes(selectedProtocolId)
-          );
+      return matchesSearch;
+    });
+    
+    // Apply protocol filter if selected
+    if (selectedProtocolId) {
+      filtered = filtered.filter(token => {
+        // Check direct protocols property
+        if (token.protocols && Array.isArray(token.protocols)) {
+          // Case-insensitive comparison
+          if (token.protocols.some(p => typeof p === 'string' && 
+              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
+            return true;
+          }
         }
-      }
-
-      // Building block filter
-      let matchesBuildingBlock = !selectedBuildingBlock;
+        
+        // Check extensions.protocols property
+        if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
+          // Case-insensitive comparison
+          if (token.extensions.protocols.some(p => typeof p === 'string' && 
+              p.toLowerCase() === selectedProtocolId.toLowerCase())) {
+            return true;
+          }
+        }
+        
+        // Special case for Pro Vaults
+        if (selectedProtocolId.toLowerCase() === 'pro-vaults' && 
+            (token.vaultAddress || 
+            (token.extensions?.vaultInfo && Object.keys(token.extensions.vaultInfo).length > 0))) {
+          return true;
+        }
+        
+        return false;
+      });
       
-      if (selectedBuildingBlock) {
+      // Debug logging for protocol filter
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`After protocol filter (${selectedProtocolId}): ${filtered.length} tokens`);
+      }
+    }
+    
+    // Apply building block filter if selected
+    if (selectedBuildingBlock) {
+      filtered = filtered.filter(token => {
         // Check direct buildingBlocks property
         if (token.buildingBlocks && Array.isArray(token.buildingBlocks)) {
           if (token.buildingBlocks.includes(selectedBuildingBlock)) {
-            matchesBuildingBlock = true;
+            return true;
           }
         }
         
         // Check extensions.buildingBlocks property
-        if (!matchesBuildingBlock && token.extensions?.buildingBlocks && Array.isArray(token.extensions.buildingBlocks)) {
+        if (token.extensions?.buildingBlocks && Array.isArray(token.extensions.buildingBlocks)) {
           if (token.extensions.buildingBlocks.includes(selectedBuildingBlock)) {
-            matchesBuildingBlock = true;
+            return true;
           }
         }
+        
+        return false;
+      });
+      
+      // Debug logging for building block filter
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`After building block filter (${selectedBuildingBlock}): ${filtered.length} tokens`);
       }
-
-      // Debug log for token that matches protocol filter
-      if (process.env.NODE_ENV === 'development' && selectedProtocolId && matchesProtocol) {
-        console.log(`Token ${token.symbol} matches protocol ${selectedProtocolId}`);
-      }
-
-      return matchesSearch && matchesProtocol && matchesBuildingBlock;
-    });
+    }
 
     setFilteredTokens(filtered);
   }, [state.tokens, state.filters]);
