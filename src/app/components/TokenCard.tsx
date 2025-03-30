@@ -133,7 +133,7 @@ const TokenCard: React.FC<TokenCardProps> = ({ token, onClick }) => {
                   onMouseLeave={() => setHoveredProtocol(null)}
                 >
                   <div 
-                    className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-110 hover:shadow-md"
+                    className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-110 hover:shadow-md"
                     style={{ 
                       backgroundImage: `url(${getProtocolLogoUrl(protocol)})`,
                       backgroundSize: 'contain',
