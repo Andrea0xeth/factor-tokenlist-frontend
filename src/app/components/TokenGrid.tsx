@@ -38,7 +38,6 @@ const TokenGrid = memo(({
         <TokenCard
           key={`${token.address}-${token.chainId || chainId}-${index}`}
           token={token}
-          isMobile={isMobile}
         />
       ))}
     </div>
