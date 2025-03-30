@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useReducer, useCallback, ReactNode, useState, useEffect, useMemo } from 'react';
 import { Token, Protocol } from '../types/index';
 import { ChainId } from '@factordao/tokenlist';
 import { getAllTokens, getAllProtocols, SUPPORTED_CHAIN_IDS } from '../lib/tokenlist';
@@ -16,8 +16,8 @@ interface AppState {
   error: string | null;
   filters: {
     searchText: string;
-    selectedProtocolId: string | null;
-    selectedBuildingBlock: BuildingBlock | null;
+    selectedProtocolIds: string[];
+    selectedBuildingBlocks: BuildingBlock[];
   };
 }
 
@@ -30,8 +30,10 @@ type AppAction =
   | { type: 'SET_CHANGING_CHAIN'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_SEARCH_TEXT'; payload: string }
-  | { type: 'SET_SELECTED_PROTOCOL'; payload: string | null }
-  | { type: 'SET_SELECTED_BUILDING_BLOCK'; payload: BuildingBlock | null }
+  | { type: 'SET_SELECTED_PROTOCOLS'; payload: string[] }
+  | { type: 'TOGGLE_PROTOCOL'; payload: string }
+  | { type: 'SET_SELECTED_BUILDING_BLOCKS'; payload: BuildingBlock[] }
+  | { type: 'TOGGLE_BUILDING_BLOCK'; payload: BuildingBlock }
   | { type: 'RESET_FILTERS' };
 
 // Initial state
@@ -44,8 +46,8 @@ const initialState: AppState = {
   error: null,
   filters: {
     searchText: '',
-    selectedProtocolId: null,
-    selectedBuildingBlock: null
+    selectedProtocolIds: [],
+    selectedBuildingBlocks: []
   }
 };
 
@@ -78,21 +80,45 @@ function appReducer(state: AppState, action: AppAction): AppState {
           searchText: action.payload 
         } 
       };
-    case 'SET_SELECTED_PROTOCOL':
+    case 'SET_SELECTED_PROTOCOLS':
       return { 
         ...state, 
         filters: { 
           ...state.filters, 
-          selectedProtocolId: action.payload 
+          selectedProtocolIds: action.payload 
         } 
       };
-    case 'SET_SELECTED_BUILDING_BLOCK':
+    case 'TOGGLE_PROTOCOL':
+      const protocolId = action.payload;
+      const isProtocolSelected = state.filters.selectedProtocolIds.includes(protocolId);
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          selectedProtocolIds: isProtocolSelected
+            ? state.filters.selectedProtocolIds.filter(id => id !== protocolId)
+            : [...state.filters.selectedProtocolIds, protocolId]
+        }
+      };
+    case 'SET_SELECTED_BUILDING_BLOCKS':
       return { 
         ...state, 
         filters: { 
           ...state.filters, 
-          selectedBuildingBlock: action.payload 
+          selectedBuildingBlocks: action.payload 
         } 
+      };
+    case 'TOGGLE_BUILDING_BLOCK':
+      const buildingBlock = action.payload;
+      const isBuildingBlockSelected = state.filters.selectedBuildingBlocks.includes(buildingBlock);
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          selectedBuildingBlocks: isBuildingBlockSelected
+            ? state.filters.selectedBuildingBlocks.filter(bb => bb !== buildingBlock)
+            : [...state.filters.selectedBuildingBlocks, buildingBlock]
+        }
       };
     case 'RESET_FILTERS':
       return { 
@@ -113,8 +139,10 @@ interface AppContextType {
   loadProtocols: (chainId: ChainId) => Promise<void>;
   changeChain: (chainId: ChainId) => void;
   setSearchText: (text: string) => void;
-  setSelectedProtocol: (protocolId: string | null) => void;
-  setSelectedBuildingBlock: (buildingBlock: BuildingBlock | null) => void;
+  setSelectedProtocols: (protocolIds: string[]) => void;
+  toggleProtocol: (protocolId: string) => void;
+  setSelectedBuildingBlocks: (buildingBlocks: BuildingBlock[]) => void;
+  toggleBuildingBlock: (buildingBlock: BuildingBlock) => void;
   resetFilters: () => void;
   filteredTokens: Token[];
 }
@@ -186,12 +214,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_SEARCH_TEXT', payload: text });
   }, []);
 
-  const setSelectedProtocol = useCallback((protocolId: string | null) => {
-    dispatch({ type: 'SET_SELECTED_PROTOCOL', payload: protocolId });
+  const setSelectedProtocols = useCallback((protocolIds: string[]) => {
+    dispatch({ type: 'SET_SELECTED_PROTOCOLS', payload: protocolIds });
   }, []);
 
-  const setSelectedBuildingBlock = useCallback((buildingBlock: BuildingBlock | null) => {
-    dispatch({ type: 'SET_SELECTED_BUILDING_BLOCK', payload: buildingBlock });
+  const toggleProtocol = useCallback((protocolId: string) => {
+    dispatch({ type: 'TOGGLE_PROTOCOL', payload: protocolId });
+  }, []);
+
+  const setSelectedBuildingBlocks = useCallback((buildingBlocks: BuildingBlock[]) => {
+    dispatch({ type: 'SET_SELECTED_BUILDING_BLOCKS', payload: buildingBlocks });
+  }, []);
+
+  const toggleBuildingBlock = useCallback((buildingBlock: BuildingBlock) => {
+    dispatch({ type: 'TOGGLE_BUILDING_BLOCK', payload: buildingBlock });
   }, []);
 
   const resetFilters = useCallback(() => {
@@ -200,11 +236,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Filter tokens based on search text and other filters
   useEffect(() => {
-    const { searchText, selectedProtocolId, selectedBuildingBlock } = state.filters;
+    const { searchText, selectedProtocolIds, selectedBuildingBlocks } = state.filters;
     const searchLower = searchText.toLowerCase().trim();
 
     // Defensive filtering with null checks
-    const filtered = state.tokens.filter(token => {
+    let filtered = state.tokens.filter(token => {
       // Skip tokens with undefined properties
       if (!token || !token.name || !token.symbol || !token.address) {
         return false;
@@ -217,16 +253,111 @@ export function AppProvider({ children }: { children: ReactNode }) {
         token.address.toLowerCase().includes(searchLower)
       );
 
-      // Protocol filter
-      const matchesProtocol = !selectedProtocolId || 
-        (token.protocols && token.protocols.includes(selectedProtocolId));
-
-      // Building block filter  
-      const matchesBuildingBlock = !selectedBuildingBlock || 
-        (token.buildingBlocks && token.buildingBlocks.includes(selectedBuildingBlock));
-
-      return matchesSearch && matchesProtocol && matchesBuildingBlock;
+      return matchesSearch;
     });
+    
+    // Apply protocol filter if selected
+    if (selectedProtocolIds.length > 0) {
+      filtered = filtered.filter(token => {
+        // Special handling for Pro Vaults
+        if (selectedProtocolIds.some(id => id.toLowerCase() === 'pro-vaults')) {
+          // Check if token is a Pro Vault
+          const isProVault = () => {
+            // Check direct protocols property
+            if (token.protocols && Array.isArray(token.protocols)) {
+              if (token.protocols.some(p => typeof p === 'string' && p.toLowerCase() === 'pro-vaults')) {
+                return true;
+              }
+            }
+            
+            // Check extensions.protocols property
+            if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
+              if (token.extensions.protocols.some(p => typeof p === 'string' && p.toLowerCase() === 'pro-vaults')) {
+                return true;
+              }
+            }
+            
+            // Check vaultAddress or vaultInfo existence
+            if (token.vaultAddress || 
+                (token.extensions?.vaultInfo && Object.keys(token.extensions.vaultInfo).length > 0)) {
+              return true;
+            }
+            
+            // Check if symbol starts with "pv" (Pro Vault naming convention)
+            if (token.symbol && token.symbol.toLowerCase().startsWith('pv')) {
+              return true;
+            }
+
+            // Special fallback for hardcoded Pro Vault addresses on Arbitrum
+            const proVaultAddresses = [
+              '0x7ac6515f4772fcb6eb5c013042578c9ae1d7fe04', // pvUSDC
+              '0x2e2bbbcc801a0796e7c5d2c27a343381e0533d06', // pvUSDT
+              '0xa74eb41c7d65e77570d5bc9fff5390137f32fc4e'  // pvETH
+            ];
+            
+            return proVaultAddresses.includes(token.address.toLowerCase());
+          };
+
+          if (isProVault()) {
+            return true;
+          }
+        }
+
+        // Check for other protocols
+        // Check if token belongs to any of the selected protocols
+        if (token.protocols && Array.isArray(token.protocols)) {
+          for (const protocol of token.protocols) {
+            if (typeof protocol === 'string' && 
+                selectedProtocolIds.some(id => id.toLowerCase() === protocol.toLowerCase())) {
+              return true;
+            }
+          }
+        }
+        
+        // Check extensions.protocols property
+        if (token.extensions?.protocols && Array.isArray(token.extensions.protocols)) {
+          for (const protocol of token.extensions.protocols) {
+            if (typeof protocol === 'string' && 
+                selectedProtocolIds.some(id => id.toLowerCase() === protocol.toLowerCase())) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      });
+      
+      // Debug logging for protocol filter
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`After protocol filter (${selectedProtocolIds.join(', ')}): ${filtered.length} tokens`);
+      }
+    }
+    
+    // Apply building block filter if selected
+    if (selectedBuildingBlocks.length > 0) {
+      filtered = filtered.filter(token => {
+        // Check direct buildingBlocks property
+        if (token.buildingBlocks && Array.isArray(token.buildingBlocks)) {
+          if (token.buildingBlocks.some(bb => selectedBuildingBlocks.includes(bb))) {
+            return true;
+          }
+        }
+        
+        // Check extensions.buildingBlocks property
+        if (token.extensions?.buildingBlocks && Array.isArray(token.extensions.buildingBlocks)) {
+          if (token.extensions.buildingBlocks.some(bb => selectedBuildingBlocks.includes(bb))) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+      
+      // Debug logging for building block filter
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`After building block filter (${selectedBuildingBlocks.join(', ')}): ${filtered.length} tokens`);
+      }
+    }
 
     setFilteredTokens(filtered);
   }, [state.tokens, state.filters]);
@@ -257,8 +388,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadProtocols,
     changeChain,
     setSearchText,
-    setSelectedProtocol,
-    setSelectedBuildingBlock,
+    setSelectedProtocols,
+    toggleProtocol,
+    setSelectedBuildingBlocks,
+    toggleBuildingBlock,
     resetFilters,
     filteredTokens
   };
@@ -277,4 +410,22 @@ export function useAppContext() {
     throw new Error('useAppContext must be used within an AppProvider');
   }
   return context;
+}
+
+export interface AppContextState {
+  selectedChainId: number;
+  setSelectedChainId: (chainId: number) => void;
+  protocols: Array<string>;
+  buildingBlocks: Array<string>;
+  filteredProtocols: Array<string>;
+  filteredBuildingBlocks: Array<string>;
+  search: string;
+  isLoading: boolean;
+  loadingError: Error | null;
+  tokens: Array<Token>;
+  filteredTokens: Array<Token>;
+  toggleFilterProtocol: (protocol: string) => void;
+  toggleFilterBuildingBlock: (buildingBlock: string) => void;
+  clearFilters: () => void;
+  setSearch: (search: string) => void;
 } 

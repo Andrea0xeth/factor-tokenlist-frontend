@@ -1,149 +1,145 @@
 'use client';
 
-import { useState } from 'react';
-import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid';
-import { Combobox } from '@headlessui/react';
-import TokenImage from './TokenImage';
-
-interface ProtocolOption {
-  id: string;
-  name: string;
-  logoURI?: string;
-}
+import React, { memo, useState, useRef, useEffect } from 'react';
+import { Protocol } from '../types/index';
+import { ChevronDownIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface ProtocolFilterProps {
-  protocols: ProtocolOption[];
-  selected: string | null;
-  onChange: (protocolId: string | null) => void;
+  protocols: Protocol[];
+  selected: string[];
+  onChange: (protocolIds: string[]) => void;
+  className?: string;
 }
 
 /**
- * Component for filtering tokens by protocol
+ * Memoized component for protocol filtering with multiple selection support
  */
-export default function ProtocolFilter({
+const ProtocolFilter = memo(({
   protocols,
   selected,
-  onChange
-}: ProtocolFilterProps) {
-  const [query, setQuery] = useState('');
+  onChange,
+  className = ''
+}: ProtocolFilterProps) => {
+  // Sort protocols alphabetically for consistent UI
+  const sortedProtocols = React.useMemo(() => {
+    return [...protocols].sort((a, b) => a.name.localeCompare(b.name));
+  }, [protocols]);
 
-  // Filter protocols based on search query
-  const filteredProtocols = query === ''
-    ? protocols
-    : protocols.filter((protocol) =>
-        protocol.name.toLowerCase().includes(query.toLowerCase())
-      );
+  // States for dropdown
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Find the selected protocol
-  const selectedProtocol = protocols.find(p => p.id === selected);
+  // Close the dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
-  // Placeholder text for the input field
-  const placeholderText = selectedProtocol?.name || "Filter by protocol";
-
-  // List of available protocols with the selected one at the top
-  const sortedProtocols = [...filteredProtocols].sort((a, b) => {
-    if (a.id === selected) return -1;
-    if (b.id === selected) return 1;
-    return a.name.localeCompare(b.name);
-  });
+  const toggleProtocol = (protocolId: string) => {
+    const isSelected = selected.includes(protocolId);
+    if (isSelected) {
+      onChange(selected.filter(id => id !== protocolId));
+    } else {
+      onChange([...selected, protocolId]);
+    }
+  };
 
   return (
-    <div className="w-full max-w-xs">
-      <Combobox value={selected} onChange={onChange}>
-        <div className="relative">
-          <div className="relative w-full cursor-default overflow-hidden rounded-md bg-white dark:bg-slate-800 text-left shadow-md focus:outline-none sm:text-sm border border-gray-300 dark:border-slate-700">
-            <Combobox.Input
-              className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white focus:ring-0 bg-transparent"
-              displayValue={(protocolId: string | null) => {
-                if (!protocolId) return '';
-                const protocol = protocols.find(p => p.id === protocolId);
-                return protocol?.name || '';
-              }}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={placeholderText}
-            />
-            <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-              <ChevronUpDownIcon
-                className="h-5 w-5 text-gray-400"
-                aria-hidden="true"
-              />
-            </Combobox.Button>
-          </div>
-          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-slate-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-            {selected && (
-              <Combobox.Option
-                className={({ active }) =>
-                  `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                    active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-white'
-                  }`
-                }
-                value={null}
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <label htmlFor="protocol-filter" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+        Protocols {selected.length > 0 && `(${selected.length} selected)`}
+      </label>
+      
+      {/* Dropdown button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full py-2 pl-3 pr-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+      >
+        <span className="truncate">
+          {selected.length === 0 
+            ? 'Select protocols' 
+            : selected.length === 1 
+              ? protocols.find(p => p.id === selected[0])?.name || selected[0]
+              : `${selected.length} protocols selected`
+          }
+        </span>
+        <ChevronDownIcon className={`ml-2 h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {/* Dropdown content */}
+      {isOpen && (
+        <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 py-1 max-h-60 overflow-auto">
+          {/* Search and clear section */}
+          <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {selected.length} selected
+            </span>
+            {selected.length > 0 && (
+              <button
+                onClick={() => onChange([])}
+                className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800/50"
               >
-                {({ selected: isSelected, active }) => (
-                  <>
-                    <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
-                      Clear filter
-                    </span>
-                    {isSelected ? (
-                      <span
-                        className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                          active ? 'text-white' : 'text-blue-600'
-                        }`}
-                      >
-                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                    ) : null}
-                  </>
+                Clear all
+              </button>
+            )}
+          </div>
+          
+          {/* Options */}
+          <div className="max-h-40 overflow-y-auto py-1">
+            {sortedProtocols.map((protocol) => (
+              <div
+                key={protocol.id}
+                onClick={() => toggleProtocol(protocol.id)}
+                className={`px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  selected.includes(protocol.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                <span className="text-sm text-gray-900 dark:text-white">{protocol.name}</span>
+                {selected.includes(protocol.id) && (
+                  <CheckIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 )}
-              </Combobox.Option>
-            )}
-            {sortedProtocols.length === 0 && query !== '' ? (
-              <div className="relative cursor-default select-none py-2 px-4 text-gray-700 dark:text-gray-300">
-                No protocols found.
               </div>
-            ) : (
-              sortedProtocols.map((protocol) => (
-                <Combobox.Option
-                  key={protocol.id}
-                  className={({ active }) =>
-                    `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
-                      active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-white'
-                    }`
-                  }
-                  value={protocol.id}
-                >
-                  {({ selected: isSelected, active }) => (
-                    <>
-                      <div className="flex items-center">
-                        {protocol.logoURI && (
-                          <TokenImage
-                            src={protocol.logoURI}
-                            alt={protocol.name}
-                            size={20}
-                            className="mr-2"
-                          />
-                        )}
-                        <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
-                          {protocol.name}
-                        </span>
-                      </div>
-                      {isSelected ? (
-                        <span
-                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                            active ? 'text-white' : 'text-blue-600'
-                          }`}
-                        >
-                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                      ) : null}
-                    </>
-                  )}
-                </Combobox.Option>
-              ))
-            )}
-          </Combobox.Options>
+            ))}
+          </div>
         </div>
-      </Combobox>
+      )}
+      
+      {/* Selected items display (compact chips) */}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1 max-h-16 overflow-y-auto">
+          {selected.map(id => {
+            const protocol = protocols.find(p => p.id === id);
+            return (
+              <div 
+                key={id} 
+                className="flex items-center bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full px-2 py-0.5"
+              >
+                <span className="truncate max-w-[100px]">{protocol?.name || id}</span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleProtocol(id);
+                  }} 
+                  className="ml-1"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
-} 
+});
+
+ProtocolFilter.displayName = 'ProtocolFilter';
+export default ProtocolFilter;

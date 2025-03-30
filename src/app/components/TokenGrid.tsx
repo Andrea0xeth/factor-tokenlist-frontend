@@ -6,6 +6,7 @@ interface TokenGridProps {
   tokens: Token[];
   protocols: Protocol[];
   chainId: number;
+  isMobile?: boolean;
   loading?: boolean;
   emptyMessage?: string;
 }
@@ -17,6 +18,7 @@ const TokenGrid = memo(({
   tokens, 
   protocols, 
   chainId, 
+  isMobile = false, 
   loading = false, 
   emptyMessage = 'No tokens found'
 }: TokenGridProps) => {
@@ -31,7 +33,7 @@ const TokenGrid = memo(({
   }
   
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isMobile ? 'gap-y-6' : ''}`}>
       {tokens.map((token, index) => (
         <TokenCard
           key={`${token.address}-${token.chainId || chainId}-${index}`}

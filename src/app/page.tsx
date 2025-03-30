@@ -1,8 +1,8 @@
 'use client';
 
-import React, { Suspense, Fragment } from 'react';
+import React, { Suspense, Fragment, useState, useEffect } from 'react';
 import { useAppContext } from './context/AppContext';
-import { ChevronUpIcon } from '@heroicons/react/24/outline';
+import { ChevronUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Navbar from './components/Navbar';
 import ChainSelector from './components/ChainSelector';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -15,6 +15,7 @@ import BuildingBlockFilter from './components/BuildingBlockFilter';
 import SearchInput from './components/SearchInput';
 import { Transition } from '@headlessui/react';
 import { BuildingBlock } from '@factordao/tokenlist';
+import MobileFilterToolbar from '@/app/components/MobileFilterToolbar';
 
 export default function Home() {
   // We use the Context to access the app's global state
@@ -26,105 +27,151 @@ export default function Home() {
       isLoading,
       isChangingChain,
       error,
-      filters: { searchText, selectedProtocolId, selectedBuildingBlock }
+      filters: { searchText, selectedProtocolIds, selectedBuildingBlocks }
     },
     filteredTokens,
     setSearchText,
-    setSelectedProtocol,
-    setSelectedBuildingBlock,
+    setSelectedProtocols,
+    toggleProtocol,
+    setSelectedBuildingBlocks,
+    toggleBuildingBlock,
     resetFilters,
     changeChain
   } = useAppContext();
 
   // Determine if there are active filters
   const hasActiveFilters = searchText.trim() !== '' || 
-    selectedProtocolId !== null || 
-    selectedBuildingBlock !== null;
+    selectedProtocolIds.length > 0 || 
+    selectedBuildingBlocks.length > 0;
 
   // Check if we should show skeleton loaders
   const showSkeletons = isLoading || isChangingChain;
 
+  // State to track if we're on mobile
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Check for mobile screen on client side only
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkMobile);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
+      {/* Header - not sticky anymore */}
+      <Navbar 
+        className="bg-white dark:bg-gray-800 shadow-sm" 
+        selectedChainId={selectedChain}
+        onChainChange={changeChain}
+      />
       
-      <div className="container mx-auto px-4 pb-8">
-        {/* Chain selector moved to the sticky filter section */}
+      <div className="container mx-auto px-4 py-6">
+        {/* Mobile filter toolbar */}
+        <div className="md:hidden mb-4">
+          <MobileFilterToolbar 
+            protocols={protocols}
+            buildingBlocks={Object.values(BuildingBlock)}
+            selectedProtocol={selectedProtocolIds.join(', ')}
+            selectedBuildingBlock={selectedBuildingBlocks.join(', ')}
+            searchText={searchText}
+            onSearchChange={setSearchText}
+            onProtocolClick={(value) => setSelectedProtocols(value)}
+            onBuildingBlockClick={(value) => setSelectedBuildingBlocks(value)}
+            onResetFilters={resetFilters}
+          />
+        </div>
         
-        {/* Sticky filters section */}
-        <div className="sticky top-0 z-10 pt-4 pb-2 bg-gray-50 dark:bg-gray-900">
-          {SUPPORTED_CHAIN_IDS.length > 1 && (
-            <div className="mb-4 flex justify-end">
-              <ChainSelector 
-                selectedChain={selectedChain} 
-                onChainChange={changeChain} 
-              />
-            </div>
-          )}
-          
-          <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Search
-                </label>
-                <SearchInput 
-                  value={searchText} 
-                  onChange={setSearchText} 
-                  placeholder="Name, symbol or address..."
-                />
+        {/* Desktop filters and search - keep this sticky */}
+        <div className="hidden md:block sticky top-0 bg-white dark:bg-gray-800 z-40 shadow-md mb-10">
+          {/* Title bar with chain selector */}
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-xl font-bold dark:text-white flex items-center">
+              Token List
+              <div className="ml-3 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-full">
+                {getChainName(selectedChain)}
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Protocol
-                </label>
-                <ProtocolFilter 
-                  protocols={protocols} 
-                  selected={selectedProtocolId}
-                  onChange={setSelectedProtocol}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Action
-                </label>
-                <BuildingBlockFilter 
-                  buildingBlocks={Object.values(BuildingBlock)}
-                  selected={selectedBuildingBlock}
-                  onChange={(value) => setSelectedBuildingBlock(value as BuildingBlock | null)}
-                  isLoading={isLoading}
-                />
-              </div>
-            </div>
+            </h1>
             
+            {/* Active filters badges */}
             {hasActiveFilters && (
-              <div className="mt-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  {filteredTokens.length} results found
-                </div>
+              <div className="flex items-center gap-2">
+                {selectedProtocolIds.length > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-full">
+                    <span>{selectedProtocolIds.map(id => protocols.find(p => p.id === id)?.name || id).join(', ')}</span>
+                    <button onClick={() => setSelectedProtocols([])} className="ml-1 text-blue-500 hover:text-blue-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
+                {selectedBuildingBlocks.length > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm rounded-full">
+                    <span>{selectedBuildingBlocks.join(', ')}</span>
+                    <button onClick={() => setSelectedBuildingBlocks([])} className="ml-1 text-purple-500 hover:text-purple-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
+                {searchText.trim() !== '' && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm rounded-full">
+                    <span>"{searchText}"</span>
+                    <button onClick={() => setSearchText('')} className="ml-1 text-green-500 hover:text-green-700">
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                
                 <button
                   onClick={resetFilters}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  aria-label="Reset all filters"
+                  className="ml-2 px-2 py-1 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-700 dark:text-red-300 text-sm rounded-full transition-colors flex items-center"
                 >
-                  Reset filters
+                  <XMarkIcon className="h-3 w-3 mr-1" />
+                  Clear All
                 </button>
               </div>
             )}
           </div>
-        
-          {SUPPORTED_CHAIN_IDS.length > 1 && (
-            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-              <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                You are viewing tokens on <span className="font-medium mx-1">{getChainName(selectedChain)}</span>
-              </p>
+          
+          {/* Filter controls */}
+          <div className="container mx-auto px-4 py-3 grid grid-cols-12 gap-4 items-center">
+            {/* Search field - spans 4 columns */}
+            <div className="col-span-4">
+              <SearchInput 
+                value={searchText} 
+                onChange={setSearchText} 
+              />
             </div>
-          )}
+            
+            {/* Protocol filter - spans 4 columns */}
+            <div className="col-span-4">
+              <ProtocolFilter 
+                protocols={protocols} 
+                selected={selectedProtocolIds}
+                onChange={(value) => setSelectedProtocols(value)}
+              />
+            </div>
+            
+            {/* Building block filter - spans 4 columns */}
+            <div className="col-span-4">
+              <BuildingBlockFilter 
+                buildingBlocks={Object.values(BuildingBlock)}
+                selected={selectedBuildingBlocks}
+                onChange={(value) => setSelectedBuildingBlocks(value as BuildingBlock[])}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
         </div>
         
         {/* Loading state */}
@@ -188,11 +235,12 @@ export default function Home() {
               leaveTo="opacity-0"
               as={Fragment}
             >
-              <div>
+              <div className={isMobile ? 'mb-24' : ''}>
                 <TokenGrid 
                   tokens={filteredTokens} 
                   protocols={protocols} 
                   chainId={selectedChain}
+                  isMobile={isMobile}
                 />
                 
                 {filteredTokens.length > 0 && (
@@ -203,6 +251,21 @@ export default function Home() {
               </div>
             </Transition>
           </Suspense>
+        )}
+        
+        {/* Mobile Bottom Filter Toolbar */}
+        {isMobile && (
+          <MobileFilterToolbar 
+            protocols={protocols}
+            buildingBlocks={Object.values(BuildingBlock)}
+            selectedProtocol={selectedProtocolIds.join(', ')}
+            selectedBuildingBlock={selectedBuildingBlocks.join(', ')}
+            searchText={searchText}
+            onSearchChange={setSearchText}
+            onProtocolClick={(value) => setSelectedProtocols(value)}
+            onBuildingBlockClick={(value) => setSelectedBuildingBlocks(value)}
+            onResetFilters={resetFilters}
+          />
         )}
       </div>
     </main>

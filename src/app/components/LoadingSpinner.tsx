@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface LoadingSpinnerProps {
-  size?: number;
+  size?: number | 'small' | 'medium' | 'large';
   color?: string;
   className?: string;
 }
@@ -14,14 +14,20 @@ export default function LoadingSpinner({
   color = 'currentColor',
   className = '',
 }: LoadingSpinnerProps) {
+  // Convert string sizes to number values
+  let sizeValue = size;
+  if (size === 'small') sizeValue = 16;
+  if (size === 'medium') sizeValue = 24;
+  if (size === 'large') sizeValue = 36;
+  
   return (
     <svg
       className={`animate-spin -ml-1 mr-3 ${className}`}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
-      width={size}
-      height={size}
+      width={sizeValue}
+      height={sizeValue}
       aria-hidden="true"
     >
       <circle
