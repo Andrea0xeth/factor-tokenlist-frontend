@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import React, { useRef, useEffect, useState } from 'react';
+import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { Token } from '../types';
 import TokenImage from './TokenImage';
 import { getExplorerUrl, getChainName } from '../lib/chains';
 import { BuildingBlock } from '@factordao/tokenlist';
+import { useTokenYields } from '../hooks/useTokenYields';
 
 interface TokenDetailModalProps {
   token: Token | null;
@@ -23,6 +24,81 @@ const BUILDING_BLOCK_NAMES: Record<string, string> = {
   [BuildingBlock.REPAY]: 'Repay',
 };
 
+// Protocol Icon component 
+function ProtocolIcon({ protocol, size = 6 }: { protocol: string, size?: number }) {
+  const [hasError, setHasError] = useState(false);
+  
+  // Check if hardcoded logo is available for common protocols
+  const getProtocolLogoURI = (protocolId: string): string | null => {
+    const knownProtocols: Record<string, string> = {
+      'balancer': 'https://factor.fi/assets/protocols/balancer.svg',
+      'aave': 'https://factor.fi/assets/protocols/aave.svg',
+      'camelot': 'https://factor.fi/assets/protocols/camelot.svg',
+      'uniswap': 'https://factor.fi/assets/protocols/uniswap-v3.svg',
+      'compound': 'https://factor.fi/assets/protocols/compound.svg',
+      'silo': 'https://factor.fi/assets/protocols/silo.svg',
+      'pendle': 'https://factor.fi/assets/protocols/pendle.svg',
+      'openocean': 'https://factor.fi/assets/protocols/openocean.svg',
+      'pro-vaults': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+      'factor vault': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+      'pv': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+      'provault': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+      'pro-vault': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+    };
+    
+    return knownProtocols[protocolId.toLowerCase()] || null;
+  }
+  
+  // Show initials if image fails
+  if (hasError) {
+    return (
+      <div className={`w-${size} h-${size} rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold`}>
+        {protocol.substring(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+  
+  // Logo with fallback
+  const hardcodedLogo = getProtocolLogoURI(protocol);
+  const logoUrl = hardcodedLogo || `/icons/protocols/${protocol.toLowerCase()}.png`;
+  
+  return (
+    <div className={`w-${size} h-${size} rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden`}>
+      <img 
+        src={logoUrl}
+        alt={protocol}
+        className={`w-${size-1} h-${size-1} object-contain`}
+        onError={() => setHasError(true)}
+        id={`protocol-img-${protocol}`}
+      />
+    </div>
+  );
+}
+
+// Tooltip component
+function Tooltip({ children, content }: { children: React.ReactNode, content: string }) {
+  const [isVisible, setIsVisible] = useState(false);
+  
+  return (
+    <div className="relative inline-block">
+      <div 
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+        className="cursor-help inline-flex items-center"
+      >
+        {children}
+      </div>
+      
+      {isVisible && (
+        <div className="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs bg-gray-800 text-white rounded shadow-lg whitespace-nowrap">
+          {content}
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Function to get protocol logo URLs
 const getProtocolLogoUrl = (protocol: string): string => {
   return `/icons/protocols/${protocol.toLowerCase()}.png`;
@@ -30,6 +106,12 @@ const getProtocolLogoUrl = (protocol: string): string => {
 
 const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isOpen }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  
+  // Add the hook to fetch yield data
+  const { yields, loading, error } = useTokenYields(
+    token?.address,
+    token?.chainId || 0
+  );
 
   // Close modal when clicking outside
   useEffect(() => {
@@ -103,6 +185,9 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
   
   // Pro Vault details
   const vaultInfo = token.extensions?.vaultInfo;
+  
+  // Truncate address for display
+  const truncatedAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -206,9 +291,10 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                   href={explorerLink} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  title={address}
                 >
-                  {address}
+                  {truncatedAddress}
                 </a>
               </div>
             </div>
@@ -229,15 +315,7 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                       key={protocol}
                       className="flex items-center space-x-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md"
                     >
-                      <div 
-                        className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600"
-                        style={{ 
-                          backgroundImage: `url(${getProtocolLogoUrl(protocol)})`,
-                          backgroundSize: 'contain',
-                          backgroundPosition: 'center',
-                          backgroundRepeat: 'no-repeat'
-                        }}
-                      />
+                      <ProtocolIcon protocol={protocol} size={4} />
                       <span className="text-xs">{protocol.charAt(0).toUpperCase() + protocol.slice(1)}</span>
                     </div>
                   ))}
@@ -315,7 +393,8 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                         href={getExplorerUrl(chainId, siloMarketAddress)} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        title={siloMarketAddress}
                       >
                         {siloMarketAddress.slice(0, 6)}...{siloMarketAddress.slice(-4)}
                       </a>
@@ -340,7 +419,8 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                         href={getExplorerUrl(chainId, vaultInfo.vaultAddress)} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        title={vaultInfo.vaultAddress}
                       >
                         {vaultInfo.vaultAddress.slice(0, 6)}...{vaultInfo.vaultAddress.slice(-4)}
                       </a>
@@ -354,7 +434,8 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                         href={getExplorerUrl(chainId, vaultInfo.strategyAddress)} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        title={vaultInfo.strategyAddress}
                       >
                         {vaultInfo.strategyAddress.slice(0, 6)}...{vaultInfo.strategyAddress.slice(-4)}
                       </a>
@@ -368,7 +449,8 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
                         href={getExplorerUrl(chainId, vaultInfo.depositToken)} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        title={vaultInfo.depositToken}
                       >
                         {vaultInfo.depositToken.slice(0, 6)}...{vaultInfo.depositToken.slice(-4)}
                       </a>
@@ -387,6 +469,105 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
               </div>
             )}
           </div>
+        </div>
+        
+        {/* Add the Yield Opportunities section after the existing content */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Yield Opportunities
+          </h3>
+          
+          {loading ? (
+            <div className="animate-pulse space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-red-500 text-sm py-2">
+              Error loading yield data: {error.message}
+            </div>
+          ) : yields.length === 0 ? (
+            <div className="text-gray-500 text-sm py-4 text-center bg-gray-50 dark:bg-gray-900 rounded-lg">
+              No yield opportunities found for this token on Arbitrum.
+            </div>
+          ) : (
+            <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Protocol
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <Tooltip content="Type of yield opportunity (lending, liquidity, staking, or farming)">
+                        <div className="flex items-center">
+                          Type
+                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                        </div>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <Tooltip content="Details about the opportunity including TVL and reward information">
+                        <div className="flex items-center">
+                          Pool Info
+                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                        </div>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <Tooltip content="Annual Percentage Yield - higher is better">
+                        <div className="flex items-center">
+                          APY
+                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                        </div>
+                      </Tooltip>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {yields.map((yieldData, index) => (
+                    <tr key={`${yieldData.protocol}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 py-3 text-sm">
+                        <a 
+                          href={yieldData.link} 
+                          target="_blank"
+                          rel="noopener noreferrer" 
+                          className="flex items-center space-x-2 hover:text-blue-600 dark:hover:text-blue-400"
+                        >
+                          <ProtocolIcon protocol={yieldData.protocol} size={6} />
+                          <span className="font-medium">{yieldData.protocol}</span>
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">{yieldData.type}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <Tooltip content="Click for more details">
+                          <a 
+                            href={yieldData.link} 
+                            target="_blank"
+                            rel="noopener noreferrer" 
+                            className="block hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            {yieldData.pairInfo && <div className="font-medium">{yieldData.pairInfo}</div>}
+                            {yieldData.details && 
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {yieldData.details.tvl && <span className="mr-3">TVL: {yieldData.details.tvl}</span>}
+                                {yieldData.details['base apy'] && <span className="mr-3">Base: {yieldData.details['base apy']}</span>}
+                                {yieldData.details['reward apy'] && <span>Rewards: {yieldData.details['reward apy']}</span>}
+                              </div>
+                            }
+                          </a>
+                        </Tooltip>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                        {yieldData.apy.toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
