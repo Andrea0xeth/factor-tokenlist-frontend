@@ -56,7 +56,7 @@ export default function Navbar({ className = '', selectedChainId, onChainChange 
             {/* Links */}
             <div className="hidden md:flex items-center gap-4">
               <a
-                href="https://docs.factordao.xyz"
+                href="https://docs.factor.fi/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-white transition-colors"
@@ -64,7 +64,7 @@ export default function Navbar({ className = '', selectedChainId, onChainChange 
                 Docs
               </a>
               <a
-                href="https://github.com/Factor-dao/factor-tokenlist"
+                href="https://github.com/FactorDAO/factor-tokenlist"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-white transition-colors"
