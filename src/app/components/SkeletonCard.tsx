@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 
 interface SkeletonCardProps {
   opacity?: number;
@@ -13,16 +15,32 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
   opacity = 0.7,
   className = ''
 }) => {
+  // Use state for client-side random values to avoid hydration mismatch
+  const [showApy, setShowApy] = useState(false);
+  const [showDeprecated, setShowDeprecated] = useState(false);
+  const [showBuildingBlocks, setShowBuildingBlocks] = useState(false);
+  const [numBuildingBlocks, setNumBuildingBlocks] = useState(0);
+  const [numProtocolIcons, setNumProtocolIcons] = useState(0);
+
+  // Generate random values only on client side
+  useEffect(() => {
+    setShowApy(Math.random() > 0.7);
+    setShowDeprecated(Math.random() > 0.8);
+    setShowBuildingBlocks(Math.random() > 0.3);
+    setNumBuildingBlocks(Math.floor(Math.random() * 3) + 1);
+    setNumProtocolIcons(Math.floor(Math.random() * 4) + 1);
+  }, []);
+
   return (
     <div 
       className={`bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm ${className}`}
       style={{ opacity }}
     >
-      {/* Random badges (APY or Deprecated) - only show in ~30% of cards */}
-      {Math.random() > 0.7 && (
+      {/* Random badges (APY or Deprecated) */}
+      {showApy && (
         <div className="absolute top-2 left-2 h-4 w-16 bg-green-500 rounded animate-pulse"></div>
       )}
-      {Math.random() > 0.8 && (
+      {showDeprecated && (
         <div className="absolute top-2 right-2 h-4 w-16 bg-red-500 rounded animate-pulse"></div>
       )}
 
@@ -42,11 +60,11 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
           <div className="ml-2 h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
         </div>
         
-        {/* Building block badges - show in ~70% of cards */}
-        {Math.random() > 0.3 && (
+        {/* Building block badges */}
+        {showBuildingBlocks && (
           <div className="mt-1">
             <div className="flex flex-wrap gap-1 justify-start">
-              {Array.from({ length: Math.floor(Math.random() * 3) + 1 }).map((_, i) => (
+              {Array.from({ length: numBuildingBlocks }).map((_, i) => (
                 <div 
                   key={i}
                   className="h-3 bg-purple-100 dark:bg-purple-900/30 rounded-sm w-14 animate-pulse"
@@ -60,7 +78,7 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({
         {/* Protocol icons */}
         <div className="mt-2 relative">
           <div className="flex flex-wrap gap-1.5 justify-start">
-            {Array.from({ length: Math.floor(Math.random() * 4) + 1 }).map((_, i) => (
+            {Array.from({ length: numProtocolIcons }).map((_, i) => (
               <div 
                 key={i}
                 className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse"
