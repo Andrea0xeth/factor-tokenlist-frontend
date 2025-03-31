@@ -42,10 +42,10 @@ export default function useTokenImage({
   // Prepare the address for use in APIs
   const tokenAddress = useMemo(() => {
     if (address?.startsWith('0x') && address.length === 42) {
-      return address;
+      return address.toLowerCase();
     }
     if (src?.includes('0x')) {
-      return src.match(/0x[a-fA-F0-9]{40}/)?.at(0) || '';
+      return src.match(/0x[a-fA-F0-9]{40}/)?.at(0)?.toLowerCase() || '';
     }
     return '';
   }, [address, src]);
@@ -59,13 +59,14 @@ export default function useTokenImage({
     
     // Simple hash function to generate an index
     let hash = 0;
-    for (let i = 0; i < cleanSymbol.length; i++) {
-      hash = cleanSymbol.charCodeAt(i) + ((hash << 5) - hash);
+    const hashStr = cleanSymbol || tokenAddress || 'default';
+    for (let i = 0; i < hashStr.length; i++) {
+      hash = hashStr.charCodeAt(i) + ((hash << 5) - hash);
     }
     
     const index = Math.abs(hash) % colors.length;
     return colors[index];
-  }, [cleanSymbol]);
+  }, [cleanSymbol, tokenAddress]);
 
   // Check if the source is a protocol image
   const isProtocolImage = useMemo(() => {
@@ -86,10 +87,18 @@ export default function useTokenImage({
     const sources = [
       src, // Original source
       `/icons/tokens/${cleanSymbol}.png`, // Local image
+      // Common chain token logos
       tokenAddress ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
       tokenAddress ? `https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
-      `https://s2.coinmarketcap.com/static/img/coins/64x64/${cleanSymbol.toLowerCase()}.png`,
-      `https://assets.coingecko.com/coins/images/1/small/${cleanSymbol.toLowerCase()}.png?1547033579`,
+      tokenAddress ? `https://tokens.1inch.io/${tokenAddress}.png` : null,
+      tokenAddress ? `https://static.debank.com/image/coin/${tokenAddress}.png` : null,
+      tokenAddress ? `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
+      // By symbol
+      cleanSymbol ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${cleanSymbol.toLowerCase()}.png` : null,
+      cleanSymbol ? `https://assets.coingecko.com/coins/images/1/small/${cleanSymbol.toLowerCase()}.png?1547033579` : null,
+      // Additional Arbitrum-specific sources
+      tokenAddress ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/assets/${tokenAddress}/logo.png` : null,
+      tokenAddress ? `https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/arbitrum/assets/${tokenAddress}/logo.png` : null,
       // SVG placeholder for final fallback
       `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="${color}" /><text x="12" y="16" text-anchor="middle" font-size="10" fill="white" font-family="Arial, sans-serif">${cleanSymbol?.slice(0, 3) || '?'}</text></svg>`
     ].filter(Boolean) as string[];
@@ -146,8 +155,16 @@ export default function useTokenImage({
     img.onerror = handleImageError;
     img.src = currentSrc;
     
+    // Set a timeout to prevent image hanging in loading state
+    const timeoutId = setTimeout(() => {
+      if (status === 'loading') {
+        handleImageError();
+      }
+    }, 3000);
+    
     // Cleanup function
     return () => {
+      clearTimeout(timeoutId);
       img.onload = null;
       img.onerror = null;
     };
