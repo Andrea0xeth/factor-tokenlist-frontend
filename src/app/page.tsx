@@ -1,13 +1,11 @@
 'use client';
 
-import React, { Suspense, Fragment, useState, useEffect } from 'react';
+import React, { Suspense, Fragment, useState, useEffect, useRef } from 'react';
 import { useAppContext } from './context/AppContext';
-import { ChevronUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import Navbar from './components/Navbar';
-import ChainSelector from './components/ChainSelector';
 import LoadingSpinner from './components/LoadingSpinner';
 import { getChainName } from './lib/chains';
-import { SUPPORTED_CHAIN_IDS } from './lib/tokenlist';
 import { SkeletonCard } from './components/SkeletonCard';
 import TokenGrid from './components/TokenGrid';
 import ProtocolFilter from './components/ProtocolFilter';
@@ -32,9 +30,7 @@ export default function Home() {
     filteredTokens,
     setSearchText,
     setSelectedProtocols,
-    toggleProtocol,
     setSelectedBuildingBlocks,
-    toggleBuildingBlock,
     resetFilters,
     changeChain
   } = useAppContext();
@@ -50,30 +46,60 @@ export default function Home() {
   // State to track if we're on mobile
   const [isMobile, setIsMobile] = useState(false);
   
-  // Check for mobile screen on client side only
+  // State to track if header should be visible
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  
+  // Check for mobile screen on client side only and handle scroll
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
     
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide header when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+    
     // Initial check
     checkMobile();
     
-    // Add event listener for window resize
+    // Add event listeners
     window.addEventListener('resize', checkMobile);
+    window.addEventListener('scroll', handleScroll);
     
     // Clean up
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header - not sticky anymore */}
-      <Navbar 
-        className="bg-white dark:bg-gray-800 shadow-sm" 
-        selectedChainId={selectedChain}
-        onChainChange={changeChain}
-      />
+      {/* Header - now hides on scroll */}
+      <div 
+        className={`fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${
+          isHeaderVisible ? 'transform-none' : '-translate-y-full'
+        }`}
+      >
+        <Navbar 
+          className="bg-white dark:bg-gray-800 shadow-sm" 
+          selectedChainId={selectedChain}
+          onChainChange={changeChain}
+        />
+      </div>
+      
+      {/* Spacer to replace fixed header */}
+      <div className="h-16"></div>
       
       <div className="container mx-auto px-4 py-6">
         {/* Mobile filter toolbar */}
@@ -94,14 +120,7 @@ export default function Home() {
         {/* Desktop filters and search - keep this sticky */}
         <div className="hidden md:block sticky top-0 bg-white dark:bg-gray-800 z-40 shadow-md mb-10">
           {/* Title bar with chain selector */}
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
-            <h1 className="text-xl font-bold dark:text-white flex items-center">
-              Token List
-              <div className="ml-3 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-full">
-                {getChainName(selectedChain)}
-              </div>
-            </h1>
-            
+          <div className="container mx-auto px-4 py-3 flex items-center justify-end border-b border-gray-200 dark:border-gray-700">
             {/* Active filters badges */}
             {hasActiveFilters && (
               <div className="flex items-center gap-2">
@@ -125,7 +144,7 @@ export default function Home() {
                 
                 {searchText.trim() !== '' && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm rounded-full">
-                    <span>"{searchText}"</span>
+                    <span>{searchText}</span>
                     <button onClick={() => setSearchText('')} className="ml-1 text-green-500 hover:text-green-700">
                       <XMarkIcon className="h-3 w-3" />
                     </button>
