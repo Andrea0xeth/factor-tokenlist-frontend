@@ -11,6 +11,62 @@ import {
 import { BuildingBlock } from '@factordao/tokenlist';
 import { Protocol } from '../types/index';
 
+// Componente per l'icona del protocollo con gestione dei fallback
+function ProtocolIcon({ protocol, size = 6 }: { protocol: Protocol, size?: number }) {
+  const [hasError, setHasError] = useState(false);
+  
+  // Verifico se è disponibile un logo hardcoded per i protocolli comuni
+  const getProtocolLogoURI = (protocolId: string): string | null => {
+    const knownProtocols: Record<string, string> = {
+      'balancer': 'https://factor.fi/assets/protocols/balancer.svg',
+      'aave': 'https://factor.fi/assets/protocols/aave.svg',
+      'camelot': 'https://factor.fi/assets/protocols/camelot.svg',
+      'uniswap': 'https://factor.fi/assets/protocols/uniswap-v3.svg',
+      'pro-vaults': 'https://factor.fi/assets/protocols/pro-vaults.svg',
+      'pv': 'https://factor.fi/assets/protocols/pro-vaults.svg', // Alias for Pro Vault
+      'provault': 'https://factor.fi/assets/protocols/pro-vaults.svg', // Alias for Pro Vault
+      'pro-vault': 'https://factor.fi/assets/protocols/pro-vaults.svg', // Alias for Pro Vault
+    };
+    
+    return knownProtocols[protocolId] || null;
+  }
+  
+  // Se c'è un errore con l'immagine, mostriamo le iniziali
+  if (hasError) {
+    return (
+      <div className={`w-${size} h-${size} rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold`}>
+        {protocol.name.substring(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+  
+  // Altrimenti, proviamo a caricare l'immagine con fallback
+  return (
+    <div className={`w-${size} h-${size} rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center`}>
+      <img 
+        src={protocol.logoURI}
+        alt={protocol.name}
+        className={`w-${size-2} h-${size-2} rounded-full`}
+        onError={() => {
+          // Prova con la URL specifica hardcoded
+          const hardcodedLogo = getProtocolLogoURI(protocol.id);
+          if (hardcodedLogo) {
+            const imgElement = document.getElementById(`protocol-img-${protocol.id}`) as HTMLImageElement;
+            if (imgElement) {
+              imgElement.src = hardcodedLogo;
+              // Non settiamo l'errore per provare ancora con l'URL hardcoded
+            }
+          } else {
+            // Se non abbiamo un fallback hardcoded, mostriamo le iniziali
+            setHasError(true);
+          }
+        }}
+        id={`protocol-img-${protocol.id}`}
+      />
+    </div>
+  );
+}
+
 interface MobileFilterToolbarProps {
   protocols: Protocol[];
   buildingBlocks: BuildingBlock[];
@@ -229,108 +285,114 @@ export default function MobileFilterToolbar({
             {/* Tabs */}
             <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
               <button
-                className={`flex-1 py-2 text-center font-medium ${
-                  selectedTab === 'protocols'
-                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className={`
+                  flex-1 py-3 px-4 text-center border-b-2 ${
+                    selectedTab === 'protocols'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400'
+                  }
+                `}
                 onClick={() => setSelectedTab('protocols')}
               >
                 Protocols
               </button>
+              
               <button
-                className={`flex-1 py-2 text-center font-medium ${
-                  selectedTab === 'buildingBlocks'
-                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className={`
+                  flex-1 py-3 px-4 text-center border-b-2 ${
+                    selectedTab === 'buildingBlocks'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400'
+                  }
+                `}
                 onClick={() => setSelectedTab('buildingBlocks')}
               >
                 Building Blocks
               </button>
             </div>
             
-            {/* Protocols grid */}
+            {/* Protocol List */}
             {selectedTab === 'protocols' && (
-              <div className="grid grid-cols-2 gap-2">
-                {protocols.map(protocol => (
-                  <button
-                    key={protocol.id}
-                    onClick={() => {
-                      onProtocolClick([protocol.id]);
-                      setIsDrawerOpen(false);
-                    }}
-                    className={`p-3 rounded-lg flex flex-col items-center justify-center border ${
-                      selectedProtocols.includes(protocol.id)
-                        ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-500 dark:border-blue-500'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-2">
-                      {protocol.logoURI ? (
-                        <img 
-                          src={protocol.logoURI} 
-                          alt={protocol.name} 
-                          className="w-8 h-8 rounded-full" 
-                        />
-                      ) : (
-                        <span className="text-xs font-bold">
-                          {protocol.name.substring(0, 2).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <span className={`text-sm font-medium ${
-                      selectedProtocols.includes(protocol.id)
-                        ? 'text-blue-700 dark:text-blue-300'
-                        : 'text-gray-800 dark:text-gray-200'
-                    }`}>
-                      {protocol.name}
-                    </span>
-                  </button>
-                ))}
+              <div className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search protocols..."
+                    className="w-full p-2 pl-8 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
+                  />
+                  <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  {protocols.map((protocol) => (
+                    <button
+                      key={protocol.id}
+                      onClick={() => {
+                        const isSelected = selectedProtocols.includes(protocol.id);
+                        const newSelectedProtocols = isSelected
+                          ? selectedProtocols.filter(p => p !== protocol.id)
+                          : [...selectedProtocols, protocol.id];
+                        onProtocolClick(newSelectedProtocols);
+                      }}
+                      className={`
+                        flex flex-col items-center p-2 rounded-lg text-xs
+                        ${selectedProtocols.includes(protocol.id)
+                          ? 'bg-blue-100 dark:bg-blue-800/30 text-blue-800 dark:text-blue-300'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-300'}
+                      `}
+                    >
+                      <ProtocolIcon protocol={protocol} />
+                      <span className="mt-1 truncate w-full text-center">
+                        {protocol.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             
-            {/* Building blocks list */}
+            {/* Building Blocks List */}
             {selectedTab === 'buildingBlocks' && (
-              <div className="space-y-2">
-                {buildingBlocks.map(block => (
+              <div className="grid grid-cols-2 gap-2">
+                {buildingBlocks.map((block) => (
                   <button
                     key={block}
                     onClick={() => {
-                      onBuildingBlockClick([block]);
-                      setIsDrawerOpen(false);
+                      const isSelected = selectedBuildingBlocksArray.includes(block);
+                      const newSelectedBlocks = isSelected
+                        ? selectedBuildingBlocksArray.filter(b => b !== block)
+                        : [...selectedBuildingBlocksArray, block];
+                      onBuildingBlockClick(newSelectedBlocks);
                     }}
-                    className={`w-full p-3 rounded-lg flex items-center justify-between ${
-                      selectedBuildingBlocksArray.includes(block)
-                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                    }`}
+                    className={`
+                      py-2 px-3 rounded-lg text-sm text-center
+                      ${selectedBuildingBlocksArray.includes(block)
+                        ? 'bg-purple-100 dark:bg-purple-800/30 text-purple-800 dark:text-purple-300'
+                        : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-300'}
+                    `}
                   >
-                    <span className="font-medium">{block}</span>
-                    {selectedBuildingBlocksArray.includes(block) && (
-                      <span className="h-3 w-3 rounded-full bg-purple-600 dark:bg-purple-400"></span>
-                    )}
+                    {block}
                   </button>
                 ))}
               </div>
             )}
             
             {/* Reset button */}
-            {activeFilterCount > 0 && (
+            <div className="mt-6 flex justify-center">
               <button
                 onClick={() => {
                   onResetFilters();
                   setIsDrawerOpen(false);
                 }}
-                className="w-full mt-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg"
+                className="flex items-center text-red-600 hover:text-red-700 font-medium"
               >
+                <XMarkIcon className="h-4 w-4 mr-1" />
                 Reset All Filters
               </button>
-            )}
+            </div>
           </div>
         </div>
       </div>
     </>
   );
-} 
+}
