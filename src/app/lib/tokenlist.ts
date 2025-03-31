@@ -21,19 +21,6 @@ export const buildingBlockToAction: Record<string, string> = {
   [BuildingBlock.STAKE]: 'Stake',
 };
 
-// Interface for Pro Vault tokens from the tokenlist
-interface ProVaultToken {
-  vaultAddress: string;
-  name: string;
-  symbol: string;
-  decimals?: number;
-  logoURI?: string;
-  strategyAddress?: string;
-  depositToken?: string;
-  apy?: number;
-  deprecated?: boolean;
-}
-
 // Cache of FactorTokenlist instances to avoid recreating them each time
 const tokenlistInstances: Record<number, FactorTokenlist> = {};
 // Track which instances have already initialized Pro Vaults
@@ -121,71 +108,6 @@ function convertSubgraphVaultToToken(vault: any, chainId: number): Token {
       totalVaultSupply: vault.totalVaultSupply || '0'
     }
   };
-}
-
-// Create dummy fallback vault tokens to ensure visibility
-function createFallbackProVaultTokens(chainId: number): Token[] {
-  console.log('⚠️ Creating fallback Pro Vault tokens since none were found');
-  
-  const fallbackTokens: Token[] = [
-    {
-      name: 'USDC Pro Vault',
-      symbol: 'pvUSDC',
-      address: '0x7ac6515f4772fcb6eb5c013042578c9ae1d7fe04',
-      chainId,
-      decimals: 6,
-      logoURI: '/icons/tokens/USDC.png',
-      vaultAddress: '0x7ac6515f4772fcb6eb5c013042578c9ae1d7fe04',
-      protocols: ['pro-vaults'],
-      extensions: {
-        protocols: ['pro-vaults'],
-        vaultInfo: {
-          apy: 5.87,
-          strategyAddress: '0x1C9a5EB8c36E562E11D909D3eed56D05D8e49874',
-          depositToken: '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
-        }
-      }
-    },
-    {
-      name: 'USDT Pro Vault',
-      symbol: 'pvUSDT',
-      address: '0x2e2bbbcc801a0796e7c5d2c27a343381e0533d06',
-      chainId,
-      decimals: 6,
-      logoURI: '/icons/tokens/USDT.png',
-      vaultAddress: '0x2e2bbbcc801a0796e7c5d2c27a343381e0533d06',
-      protocols: ['pro-vaults'],
-      extensions: {
-        protocols: ['pro-vaults'],
-        vaultInfo: {
-          apy: 5.43,
-          strategyAddress: '0x8a98929750dd993de44c0c7ad7a890a0d39ac1c5',
-          depositToken: '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
-        }
-      }
-    },
-    {
-      name: 'ETH Pro Vault',
-      symbol: 'pvETH',
-      address: '0xa74eb41c7d65e77570d5bc9fff5390137f32fc4e',
-      chainId,
-      decimals: 18,
-      logoURI: '/icons/tokens/ETH.png',
-      vaultAddress: '0xa74eb41c7d65e77570d5bc9fff5390137f32fc4e',
-      protocols: ['pro-vaults'],
-      extensions: {
-        protocols: ['pro-vaults'],
-        vaultInfo: {
-          apy: 3.25,
-          strategyAddress: '0x3f2e5ed8d7c9aeb9ea7342695e06df921cdb0c0a',
-          depositToken: '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
-        }
-      }
-    }
-  ];
-  
-  console.log(`✅ Created ${fallbackTokens.length} fallback Pro Vault tokens`);
-  return fallbackTokens;
 }
 
 // Function to get a FactorTokenlist instance for a given chain
@@ -315,14 +237,16 @@ export async function getAllTokens(chainId: number = ChainId.ARBITRUM_ONE): Prom
       }
     }
     
-    // Method 4: Use hardcoded fallback tokens if all else fails
-    if (proVaultTokens.length === 0) {
-      proVaultTokens = createFallbackProVaultTokens(chainId);
-    }
+    // No longer using hardcoded fallback tokens
+    // We'll rely on the API and subgraph queries only
     
-    // Add Pro Vault tokens to the list
-    allTokens = [...allTokens, ...proVaultTokens];
-    console.log(`✅ Added ${proVaultTokens.length} Pro Vault tokens to the list`);
+    // Add Pro Vault tokens to the list (only if we found any)
+    if (proVaultTokens.length > 0) {
+      allTokens = [...allTokens, ...proVaultTokens];
+      console.log(`✅ Added ${proVaultTokens.length} Pro Vault tokens to the list`);
+    } else {
+      console.log('⚠️ No Pro Vault tokens found from any source');
+    }
   }
 
   // Define all protocol-specific methods that could be available
