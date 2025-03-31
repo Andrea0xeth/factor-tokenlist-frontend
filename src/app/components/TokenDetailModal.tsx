@@ -492,81 +492,146 @@ const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose, isO
               No yield opportunities found for this token on Arbitrum.
             </div>
           ) : (
-            <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Protocol
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      <Tooltip content="Type of yield opportunity (lending, liquidity, staking, or farming)">
-                        <div className="flex items-center">
-                          Type
-                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
-                        </div>
-                      </Tooltip>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      <Tooltip content="Details about the opportunity including TVL and reward information">
-                        <div className="flex items-center">
-                          Pool Info
-                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
-                        </div>
-                      </Tooltip>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      <Tooltip content="Annual Percentage Yield - higher is better">
-                        <div className="flex items-center">
-                          APY
-                          <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
-                        </div>
-                      </Tooltip>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {yields.map((yieldData, index) => (
-                    <tr key={`${yieldData.protocol}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3 text-sm">
-                        <a 
-                          href={yieldData.link} 
-                          target="_blank"
-                          rel="noopener noreferrer" 
-                          className="flex items-center space-x-2 hover:text-blue-600 dark:hover:text-blue-400"
-                        >
-                          <ProtocolIcon protocol={yieldData.protocol} size={6} />
-                          <span className="font-medium">{yieldData.protocol}</span>
-                        </a>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">{yieldData.type}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <Tooltip content="Click for more details">
+            <>
+              {/* Desktop table view - hidden on small screens */}
+              <div className="hidden sm:block overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Protocol
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <Tooltip content="Type of yield opportunity (lending, liquidity, staking, or farming)">
+                          <div className="flex items-center">
+                            Type
+                            <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                          </div>
+                        </Tooltip>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <Tooltip content="Details about the opportunity including TVL and reward information">
+                          <div className="flex items-center">
+                            Pool Info
+                            <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                          </div>
+                        </Tooltip>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <Tooltip content="Annual Percentage Yield - higher is better">
+                          <div className="flex items-center">
+                            APY
+                            <InformationCircleIcon className="h-3.5 w-3.5 ml-1" />
+                          </div>
+                        </Tooltip>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {yields.map((yieldData, index) => (
+                      <tr key={`${yieldData.protocol}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-4 py-3 text-sm">
                           <a 
                             href={yieldData.link} 
                             target="_blank"
                             rel="noopener noreferrer" 
-                            className="block hover:text-blue-600 dark:hover:text-blue-400"
+                            className="flex items-center space-x-2 hover:text-blue-600 dark:hover:text-blue-400"
                           >
-                            {yieldData.pairInfo && <div className="font-medium">{yieldData.pairInfo}</div>}
-                            {yieldData.details && 
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {yieldData.details.tvl && <span className="mr-3">TVL: {yieldData.details.tvl}</span>}
-                                {yieldData.details['base apy'] && <span className="mr-3">Base: {yieldData.details['base apy']}</span>}
-                                {yieldData.details['reward apy'] && <span>Rewards: {yieldData.details['reward apy']}</span>}
-                              </div>
-                            }
+                            <ProtocolIcon protocol={yieldData.protocol} size={6} />
+                            <span className="font-medium">{yieldData.protocol}</span>
                           </a>
-                        </Tooltip>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">{yieldData.type}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <Tooltip content="Click for more details">
+                            <a 
+                              href={yieldData.link} 
+                              target="_blank"
+                              rel="noopener noreferrer" 
+                              className="block hover:text-blue-600 dark:hover:text-blue-400"
+                            >
+                              {yieldData.pairInfo && <div className="font-medium">{yieldData.pairInfo}</div>}
+                              {yieldData.details && 
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {yieldData.details.tvl && <span className="mr-3">TVL: {yieldData.details.tvl}</span>}
+                                  {yieldData.details['base apy'] && <span className="mr-3">Base: {yieldData.details['base apy']}</span>}
+                                  {yieldData.details['reward apy'] && <span>Rewards: {yieldData.details['reward apy']}</span>}
+                                </div>
+                              }
+                            </a>
+                          </Tooltip>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-green-600 dark:text-green-400">
+                          {yieldData.apy.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile card view - shown only on small screens */}
+              <div className="sm:hidden space-y-4">
+                {yields.map((yieldData, index) => (
+                  <a 
+                    key={`mobile-${yieldData.protocol}-${index}`}
+                    href={yieldData.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <ProtocolIcon protocol={yieldData.protocol} size={8} />
+                        <span className="font-medium text-base">{yieldData.protocol}</span>
+                      </div>
+                      <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-bold px-3 py-1 rounded-full text-sm">
                         {yieldData.apy.toFixed(2)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-2">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Type</div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300 capitalize">{yieldData.type}</div>
+                    </div>
+                    
+                    {yieldData.pairInfo && (
+                      <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Pool</div>
+                        <div className="text-sm text-gray-700 dark:text-gray-300">{yieldData.pairInfo}</div>
+                      </div>
+                    )}
+                    
+                    {yieldData.details && (
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {yieldData.details.tvl && (
+                            <div className="flex flex-col">
+                              <span className="text-gray-500 dark:text-gray-400 uppercase font-medium">TVL</span>
+                              <span className="text-gray-700 dark:text-gray-300">{yieldData.details.tvl}</span>
+                            </div>
+                          )}
+                          
+                          {yieldData.details['base apy'] && (
+                            <div className="flex flex-col">
+                              <span className="text-gray-500 dark:text-gray-400 uppercase font-medium">Base APY</span>
+                              <span className="text-gray-700 dark:text-gray-300">{yieldData.details['base apy']}</span>
+                            </div>
+                          )}
+                          
+                          {yieldData.details['reward apy'] && (
+                            <div className="flex flex-col">
+                              <span className="text-gray-500 dark:text-gray-400 uppercase font-medium">Rewards</span>
+                              <span className="text-gray-700 dark:text-gray-300">{yieldData.details['reward apy']}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
