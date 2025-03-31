@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Token, Protocol } from '../types/index';
 import TokenCard from './TokenCard';
+import TokenDetailModal from './TokenDetailModal';
 
 interface TokenGridProps {
   tokens: Token[];
@@ -22,6 +23,20 @@ const TokenGrid = memo(({
   loading = false, 
   emptyMessage = 'No tokens found'
 }: TokenGridProps) => {
+  // State for the selected token to show in modal
+  const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  
+  // Handle token card click
+  const handleTokenClick = (token: Token) => {
+    setSelectedToken(token);
+    setIsModalOpen(true);
+  };
+  
+  // Handle modal close
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
   
   // If there are no tokens, show a message
   if (!loading && tokens.length === 0) {
@@ -33,14 +48,24 @@ const TokenGrid = memo(({
   }
   
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isMobile ? 'gap-y-6' : ''}`}>
-      {tokens.map((token, index) => (
-        <TokenCard
-          key={`${token.address}-${token.chainId || chainId}-${index}`}
-          token={token}
-        />
-      ))}
-    </div>
+    <>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 ${isMobile ? 'gap-y-6' : ''}`}>
+        {tokens.map((token, index) => (
+          <TokenCard
+            key={`${token.address}-${token.chainId || chainId}-${index}`}
+            token={token}
+            onClick={handleTokenClick}
+          />
+        ))}
+      </div>
+      
+      {/* Token Detail Modal */}
+      <TokenDetailModal 
+        token={selectedToken}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
+    </>
   );
 });
 
